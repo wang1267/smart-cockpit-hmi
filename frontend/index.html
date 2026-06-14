@@ -232,7 +232,8 @@
     font-family: var(--font-cn); font-size: .85rem; font-weight: 600;
     transition: all .3s; pointer-events: none;
   }
-  .voice-indicator.idle { background: var(--card); border: 1px solid var(--border); color: var(--text3); }
+  .voice-indicator.idle { background: var(--card); border: 1px solid var(--border); color: var(--text3); cursor: pointer; }
+  .voice-indicator.idle:hover { border-color: var(--cyan); color: var(--cyan); }
   .voice-indicator.listening {
     background: rgba(0,212,255,.1); border: 1.5px solid var(--cyan);
     color: var(--cyan); animation: pulse-voice 1.5s infinite;
@@ -365,7 +366,7 @@
 </div>
 
 <!-- 语音浮标 -->
-<div class="voice-indicator idle" id="voice-indicator">🎤 说「小王小王」唤醒</div>
+<div class="voice-indicator idle" id="voice-indicator" onclick="manualWake()" title="点击或说「小王小王」启动语音助手">🎤 说「小王小王」唤醒 · 点击也行</div>
 
 <!-- 断电遮罩 -->
 <div class="power-off-overlay" id="power-overlay">
@@ -561,7 +562,7 @@
         wakeActive = false;
         indicator.textContent = '🎤 说「小王小王」唤醒';
         indicator.className = 'voice-indicator idle';
-      }, 5000); // 5秒无新指令自动休眠
+      }, 8000); // 8秒无新指令自动休眠
     }
 
     rec.onresult = (e) => {
@@ -618,6 +619,21 @@
     };
 
     try { rec.start(); resetSilence(); } catch(e) {}
+  }
+
+  // 手动点击唤醒
+  function manualWake() {
+    if (wakeActive) return;
+    wakeActive = true;
+    const indicator = document.getElementById('voice-indicator');
+    indicator.textContent = '✅ 小王在听，请说指令…';
+    indicator.className = 'voice-indicator wake';
+    clearTimeout(window._wakeTimeout);
+    window._wakeTimeout = setTimeout(() => {
+      wakeActive = false;
+      indicator.textContent = '🎤 说「小王小王」唤醒 · 点击也行';
+      indicator.className = 'voice-indicator idle';
+    }, 8000);
   }
 
   /* ═══ 键盘 ═══ */

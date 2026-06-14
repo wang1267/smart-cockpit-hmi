@@ -322,170 +322,152 @@ def voice_command():
 
 
 def process_voice(text):
-    # 原始文本
+    import re
     original = text
-    # 预处理：去空格、全角转半角
     t = text.lower().replace(" ", "").replace("　", "")
 
-    # 口音容错表：常见误识别 → 正确词
+    # ─── 口音容错 + 同义词扩展 ───
     accent_fix = {
         # 挂挡
-        "挂机档": "挂d档", "g大档": "挂d档", "瓜d档": "挂d档", "瓜地档": "挂d档",
-        "皮档": "p档", "批档": "p档", "二档": "r档", "倒档": "r档",
-        "空档": "n档", "嗯档": "n档",
-        # 定速
-        "订书": "定速", "订书机": "定速", "定数": "定速", "定处": "定速",
-        "钉速": "定速", "顶速": "定速", "匀速": "定速",
-        # 巡航
-        "循环": "巡航", "虚荣": "巡航", "徐航": "巡航", "寻航": "巡航",
-        # 加速
-        "家属": "加速", "加书": "加速", "佳速": "加速",
-        # 减速
-        "减速器": "减速", "碱素": "减速", "减书": "减速",
+        "挂机档":"挂d档","g大档":"挂d档","瓜d档":"挂d档","皮档":"p档","批档":"p档",
+        "二档":"r档","倒档":"r档","空档":"n档","嗯档":"n档",
+        # 定速/巡航
+        "订书":"定速","定数":"定速","钉速":"定速","顶速":"定速","匀速":"定速",
+        "循环":"巡航","虚荣":"巡航","徐航":"巡航","寻航":"巡航",
+        # 驾驶
+        "家属":"加速","佳速":"加速","碱素":"减速","减书":"减速",
+        "走":"加速","冲":"加速","停":"减速","刹":"刹车","杀":"刹车",
         # 空调
-        "空投": "空调", "空条": "空调", "空头": "空调", "恐高": "空调",
-        # 温度
-        "温度计": "温度", "文都": "温度", "问度": "温度",
+        "空投":"空调","空条":"空调","空头":"空调","恐高":"空调",
+        "文都":"温度","问度":"温度","冷风":"制冷","热风":"制热",
         # 充电
-        "充电器": "充电", "充电宝": "充电", "通电": "充电", "冲电": "充电",
+        "冲电":"充电","通电":"充电","补充电量":"充电",
         # 唤醒
-        "小王同学": "小王小王", "小旺小旺": "小王小王",
-        # 数字
-        "石": "十", "是": "十", "事": "十",
-        "淋巴": "80", "巴黎": "80",
-        "流失": "60", "绿石": "60",
-        "而死": "24", "按时": "24",
+        "小王同学":"小王小王","小旺小旺":"小王小王",
+        # 数字口音
+        "石":"十","事":"十","淋巴":"80","巴黎":"80","流失":"60","绿石":"60",
+        "而死":"24","按时":"24","移":"一","儿":"二","山":"三","是":"四",
     }
-
-    # 应用口音修正（匹配最长词优先）
-    fixed = t
     for wrong, right in sorted(accent_fix.items(), key=lambda x: -len(x[0])):
-        if wrong in fixed:
-            fixed = fixed.replace(wrong, right)
+        if wrong in t:
+            t = t.replace(wrong, right)
 
-    # 如果修正后没变化，用原始
-    t = fixed
+    nums = re.findall(r'\d+', t)
+    num = int(nums[0]) if nums else None
 
-    # 挂挡指令
-    if "p档" in t or "p挡" in t or "停车" in t:
-        state["gear"] = "P"; state["speed"] = 0; state["throttle"] = 0; state["brake"] = 0
-        return "已挂入 P 档"
-    if "r档" in t or "r挡" in t or "倒车" in t:
-        if state["charging"]: return "充电中不可驾驶"
-        if state["power_off"]: return "电量耗尽"
-        state["gear"] = "R"; state["throttle"] = 0
-        return "已挂入 R 档"
-    if "n档" in t or "n挡" in t or "空挡" in t:
-        state["gear"] = "N"; state["throttle"] = 0
-        return "已挂入 N 档"
-    if "d档" in t or "d挡" in t or "前进" in t:
-        if state["charging"]: return "充电中不可驾驶"
-        if state["power_off"]: return "电量耗尽"
-        state["gear"] = "D"; state["throttle"] = 0
-        return "已挂入 D 档"
+    # ─── 1. 定速巡航（语义：数字 + 速度/行驶/保持/定速/巡航/开到/跑到） ───
+    speed_context = ("定速" in t or "巡航" in t or "保持" in t or "开到" in t
+        or "跑到" in t or "设定" in t or "速度" in t or "车速" in t
+        or "行驶" in t or "开" in t or "走" in t or "限速" in t)
+    if speed_context and num and 0 <= num <= 160:
+        if state["charging"]: return "充电中不可驾驶，请先停止充电"
+        if state["power_off"]: return "电量耗尽，请先充电"
+        state["cruise_speed"] = num
+        state["cruise_on"] = True
+        state["throttle"] = 0; state["brake"] = 0
+        if state["gear"] != "D":
+            state["gear"] = "D"
+        return f"好的，定速巡航 {num} km/h"
 
-    # 定速巡航
-    if "定速" in t or "巡航" in t or "保持" in t:
-        if state["charging"]: return "充电中不可驾驶"
-        if state["power_off"]: return "电量耗尽"
-        import re
-        nums = re.findall(r'\d+', t)
-        if nums:
-            target_speed = int(nums[0])
-            target_speed = max(0, min(160, target_speed))
-            state["cruise_speed"] = target_speed
-            state["cruise_on"] = True
-            if state["gear"] != "D":
-                state["gear"] = "D"
-            return f"定速巡航已开启，目标车速 {target_speed} km/h"
-        else:
-            return "请说具体车速，例如「定速60」"
-    if "取消定速" in t or "关闭定速" in t or "关闭巡航" in t:
-        state["cruise_on"] = False
-        state["cruise_speed"] = 0
+    if "取消定速" in t or "退出定速" in t or "关闭定速" in t or "关闭巡航" in t or "退出巡航" in t:
+        state["cruise_on"] = False; state["cruise_speed"] = 0
         return "定速巡航已取消"
 
-    # 加速 / 减速
-    if "加速" in t or "快一点" in t or "快点" in t:
+    # ─── 2. 挂挡 ───
+    gear_map = [
+        (["p档","p挡","p","停车","驻车"], "P"),
+        (["r档","r挡","r","倒车","倒挡"], "R"),
+        (["n档","n挡","n","空挡","空档"], "N"),
+        (["d档","d挡","d","前进","开车","走","起步"], "D"),
+    ]
+    for keywords, gear in gear_map:
+        for kw in keywords:
+            if t == kw or t.startswith(kw) or t.endswith(kw) or kw in t:
+                if gear != "P":
+                    if state["charging"]: return "充电中，请先断开充电枪"
+                    if state["power_off"]: return "电量耗尽，请先充电"
+                state["gear"] = gear
+                if gear == "P":
+                    state["speed"] = 0; state["throttle"] = 0; state["brake"] = 0
+                    state["cruise_on"] = False
+                state["throttle"] = 0; state["brake"] = 0
+                return f"已挂入 {gear} 档"
+                break
+
+    # ─── 3. 速度控制 ───
+    if "加速" in t or "快" in t or "提速" in t or "踩油门" in t or "冲" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
-        # 先取消巡航
         state["cruise_on"] = False
-        state["throttle"] = min(100, state["throttle"] + 30)
+        state["throttle"] = min(100, state["throttle"] + 40)
         state["brake"] = 0
-        if state["gear"] == "P":
+        if state["gear"] not in ("D","R"):
             state["gear"] = "D"
-            return "已挂 D 档，油门 " + str(state["throttle"])
-        return f"油门加至 {state['throttle']}"
-    if "减速" in t or "慢一点" in t or "慢点" in t:
+            return f"已挂D档，油门 {state['throttle']}"
+        return f"油门 {state['throttle']}"
+
+    if "减速" in t or "慢" in t or "刹车" in t or "刹" in t or "制动" in t:
         state["cruise_on"] = False
-        state["brake"] = min(100, state["brake"] + 30)
+        state["brake"] = min(100, state["brake"] + 40)
         state["throttle"] = 0
-        return f"刹车加至 {state['brake']}"
-    if "松油门" in t or "松开油门" in t:
-        state["cruise_on"] = False
-        state["throttle"] = 0
+        return f"刹车 {state['brake']}"
+
+    if "松油门" in t or "松掉油门" in t:
+        state["throttle"] = 0; state["cruise_on"] = False
         return "油门已松开"
-    if "松刹车" in t or "松开刹车" in t:
+    if "松刹车" in t:
         state["brake"] = 0
         return "刹车已松开"
 
-    # 空调
-    if "开空调" in t or "打开空调" in t:
-        state["ac_on"] = True
-        return "空调已打开"
-    if "关空调" in t or "关闭空调" in t:
-        state["ac_on"] = False
-        return "空调已关闭"
+    # ─── 4. 空调 ───
+    if num and 16 <= num <= 32 and ("空调" in t or "温度" in t or "度" in t or "调" in t or "设" in t or "冷" in t or "热" in t):
+        state["ac_temp"] = num
+        if not state["ac_on"]:
+            state["ac_on"] = True
+        return f"空调温度已调到 {num} 度"
 
-    # 空调温度（支持"空调26度""调到20度""温度26"等说法）
-    if "空调" in t or "温度" in t or "度" in t:
-        import re
-        nums = re.findall(r'\d+', t)
-        if nums:
-            temp = int(nums[0])
-            if 16 <= temp <= 32:
-                state["ac_temp"] = temp
-                if not state["ac_on"]:
-                    state["ac_on"] = True
-                return f"空调已开，温度调到 {state['ac_temp']}℃"
+    if "开空调" in t or "启动空调" in t or "空调打开" in t:
+        state["ac_on"] = True; return "空调已打开"
+    if "关空调" in t or "空调关闭" in t or "空调关掉" in t:
+        state["ac_on"] = False; return "空调已关闭"
 
-    if "风量" in t or "风速" in t or "风" in t:
-        import re
-        nums = re.findall(r'\d+', t)
-        if nums:
-            fan = int(nums[0])
-            if 1 <= fan <= 7:
-                state["ac_fan"] = fan
-                return f"风量已调至 {state['ac_fan']} 档"
-    if "制冷" in t:
-        state["ac_mode"] = "cool"; state["ac_on"] = True
-        return "已切换制冷模式"
-    if "制热" in t:
-        state["ac_mode"] = "heat"; state["ac_on"] = True
-        return "已切换制热模式"
+    if "制冷" in t or "冷气" in t or "冷风" in t or "空调冷" in t:
+        state["ac_mode"] = "cool"; state["ac_on"] = True; return "制冷模式已开启"
+    if "制热" in t or "暖气" in t or "热风" in t or "空调热" in t:
+        state["ac_mode"] = "heat"; state["ac_on"] = True; return "制热模式已开启"
     if "自动空调" in t or "auto" in t.lower():
-        state["ac_mode"] = "auto"; state["ac_on"] = True
-        return "已切换自动空调"
+        state["ac_mode"] = "auto"; state["ac_on"] = True; return "自动空调已开启"
 
-    # 充电
-    if "充电" in t:
-        if state["battery"] >= 100:
-            return "电量已满，无需充电"
-        state["charging"] = True
-        state["gear"] = "P"; state["speed"] = 0; state["throttle"] = 0; state["brake"] = 0
+    if num and 1 <= num <= 7 and ("风量" in t or "风速" in t or "风力" in t):
+        state["ac_fan"] = num
+        return f"风量调到 {num} 档"
+
+    # ─── 5. 充电 ───
+    if "充电" in t or "补电" in t:
+        if state["battery"] >= 100: return "电量已满，无需充电"
+        state["charging"] = True; state["gear"] = "P"
+        state["speed"] = 0; state["throttle"] = 0; state["brake"] = 0
         state["power_off"] = False
         return "开始充电"
-    if "停止充电" in t or "断开充电" in t:
+    if "停止充电" in t or "断开充电" in t or "不充了" in t:
         state["charging"] = False
         return "充电已停止"
 
-    # 自动驾驶
+    # ─── 6. 自动驾驶 ───
     if "自动驾驶" in t or "辅助驾驶" in t:
         state["autopilot"] = not state["autopilot"]
         return f"自动驾驶已{'开启' if state['autopilot'] else '关闭'}"
 
-    return f"指令已接收：{text}"
+    # ─── 7. 听不懂时给建议 ───
+    hints = [
+        "「定速60」设巡航",
+        "「挂D档」换挡",
+        "「加速」「减速」控车速",
+        "「空调24度」调温度",
+        "「充电」开始充电",
+        "「制冷」「制热」切换模式",
+    ]
+    return f"抱歉没听懂「{original}」。试试：" + "、".join(hints)
 
 
 if __name__ == "__main__":
