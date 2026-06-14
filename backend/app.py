@@ -182,6 +182,8 @@ def update_battery_warning():
     if level not in _triggered_warnings:
         _triggered_warnings.add(level)
         state["battery_warning"] = level
+    else:
+        state["battery_warning"] = None
 
 
 # ═══════════════ API ═══════════════
