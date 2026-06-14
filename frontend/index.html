@@ -227,10 +227,11 @@
 
   /* 语音状态浮标 */
   .voice-indicator {
-    position: fixed; bottom: 110px; right: 20px; z-index: 10;
-    padding: 10px 18px; border-radius: 24px;
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 20;
+    padding: 10px 24px; border-radius: 24px;
     font-family: var(--font-cn); font-size: .85rem; font-weight: 600;
-    transition: all .3s; pointer-events: none;
+    transition: all .3s; cursor: pointer;
+    white-space: nowrap;
   }
   .voice-indicator.idle { background: var(--card); border: 1px solid var(--border); color: var(--text3); cursor: pointer; }
   .voice-indicator.idle:hover { border-color: var(--cyan); color: var(--cyan); }
@@ -584,19 +585,26 @@
       if (!text) return;
 
       // 检测唤醒词
-      if (!wakeActive && text.includes('小王小王')) {
+      const hasWake = text.includes('小王小王') || text.includes('小王');
+      if (!wakeActive && hasWake) {
         wakeActive = true;
-        indicator.textContent = '✅ 小王在听，请说指令…';
+        // 去掉唤醒词，看后面有没有指令
+        const afterWake = text.replace(/小王小王|小王/g, '').trim();
+        indicator.textContent = afterWake ? '✅ 收到：「' + afterWake + '」' : '✅ 小王在听，请说指令…';
         indicator.className = 'voice-indicator wake';
         resetSilence();
+        if (afterWake && e.results[e.results.length-1].isFinal) {
+          // 唤醒词后面直接跟了指令，一起处理
+          fetch('/api/voice', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: afterWake}) });
+        }
         return;
       }
 
       // 唤醒后处理指令（仅处理最终结果）
       if (wakeActive && e.results[e.results.length-1].isFinal) {
-        // 过滤掉纯唤醒词
-        const cmd = text.replace('小王小王', '').trim();
-        if (cmd) {
+        // 过滤掉可能残留的唤醒词
+        const cmd = text.replace(/小王小王|小王/g, '').trim();
+        if (cmd && cmd.length >= 1) {
           indicator.textContent = '✅ 收到：「' + cmd + '」';
           indicator.className = 'voice-indicator wake';
           fetch('/api/voice', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: cmd}) });
@@ -604,7 +612,7 @@
           indicator.textContent = '✅ 小王在听，请说指令…';
           indicator.className = 'voice-indicator wake';
         }
-        resetSilence(); // 收到指令后重新计时
+        resetSilence();
       }
     };
 
@@ -623,12 +631,13 @@
 
   // 手动点击唤醒
   function manualWake() {
-    if (wakeActive) return;
     wakeActive = true;
     const indicator = document.getElementById('voice-indicator');
     indicator.textContent = '✅ 小王在听，请说指令…';
     indicator.className = 'voice-indicator wake';
     clearTimeout(window._wakeTimeout);
+    // 强制重启一次识别，确保引擎活跃
+    window._forceRestart = true;
     window._wakeTimeout = setTimeout(() => {
       wakeActive = false;
       indicator.textContent = '🎤 说「小王小王」唤醒 · 点击也行';
