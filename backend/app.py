@@ -104,13 +104,18 @@ def simulate_vehicle():
         brake = state["brake"] / 100
 
         if state["gear"] == "D":
-            target = throttle * 300 - brake * 80
+            # 怠速蠕行：松油门松刹车时缓慢前进
+            creep = 6 if (throttle < 0.02 and brake < 0.02) else 0
+            target = max(creep, throttle * 300 - brake * 80)
             state["speed"] += (target - state["speed"]) * 0.15
-            state["speed"] = round(max(0, min(300, state["speed"])), 1)  # D档最低0
+            state["speed"] = round(max(0, min(300, state["speed"])), 1)
+
         elif state["gear"] == "R":
-            target = -(throttle * 25 - brake * 15)
-            state["speed"] += (target - state["speed"]) * 0.08
-            state["speed"] = round(max(-25, min(0, state["speed"])), 1)  # R档最高0
+            # 倒挡怠速：松油门松刹车时缓慢后溜
+            creep = -4 if (throttle < 0.02 and brake < 0.02) else 0
+            target = min(creep, -(throttle * 300 - brake * 80))
+            state["speed"] += (target - state["speed"]) * 0.15
+            state["speed"] = round(max(-25, min(0, state["speed"])), 1)
         else:
             state["speed"] = round(state["speed"] * 0.9, 1)
             if abs(state["speed"]) < 0.5:
