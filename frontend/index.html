@@ -401,8 +401,8 @@
     const sn = document.getElementById('speed-num');
     sn.textContent = speed;
     sn.className = 'speed-num';
-    if (speed > 100) sn.classList.add('danger');
-    else if (speed > 50) sn.classList.add('fast');
+    if (speed > 200) sn.classList.add('danger');
+    else if (speed > 100) sn.classList.add('fast');
     else sn.classList.add('normal');
 
     document.getElementById('gear-name').textContent =

@@ -106,7 +106,7 @@ def simulate_vehicle():
         if state["gear"] == "D":
             target = throttle * 140 - brake * 50
             state["speed"] += (target - state["speed"]) * 0.08
-            state["speed"] = round(max(0, min(160, state["speed"])), 1)  # D档最低0
+            state["speed"] = round(max(0, min(300, state["speed"])), 1)  # D档最低0
         elif state["gear"] == "R":
             target = -(throttle * 25 - brake * 15)
             state["speed"] += (target - state["speed"]) * 0.08
@@ -136,9 +136,9 @@ def simulate_vehicle():
 
         # ═══ 电池消耗 ═══
         # 基础消耗 + 速度消耗 + 空调消耗
-        base_drain = 0.0005
-        speed_drain = abs(state["speed"]) * 0.00005 * (1 + throttle * 2)
-        ac_drain = 0.0003 if state["ac_on"] else 0
+        base_drain = 0.0015
+        speed_drain = abs(state["speed"]) * 0.00015 * (1 + throttle * 2)
+        ac_drain = 0.001 if state["ac_on"] else 0
         total_drain = base_drain + speed_drain + ac_drain
         state["battery"] = max(0, state["battery"] - total_drain)
         state["battery"] = round(state["battery"], 1)
@@ -326,6 +326,16 @@ def process_voice(text):
     original = text
     t = text.lower().replace(" ", "").replace("　", "")
 
+    # ─── 中文数字 → 阿拉伯数字 ───
+    cn_num_map = {
+        "零":0,"一":1,"二":2,"两":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9,
+        "十":10,"二十":20,"三十":30,"四十":40,"五十":50,"六十":60,"七十":70,"八十":80,"九十":90,
+        "百":100,
+    }
+    # 替换形如"六十"→"60"
+    for cn, val in sorted(cn_num_map.items(), key=lambda x: -len(x[0])):
+        t = t.replace(cn, str(val))
+
     # ─── 口音容错 + 同义词扩展 ───
     accent_fix = {
         # 挂挡
@@ -344,9 +354,6 @@ def process_voice(text):
         "冲电":"充电","通电":"充电","补充电量":"充电",
         # 唤醒
         "小王同学":"小王小王","小旺小旺":"小王小王",
-        # 数字口音
-        "石":"十","事":"十","淋巴":"80","巴黎":"80","流失":"60","绿石":"60",
-        "而死":"24","按时":"24","移":"一","儿":"二","山":"三","是":"四",
     }
     for wrong, right in sorted(accent_fix.items(), key=lambda x: -len(x[0])):
         if wrong in t:
@@ -355,11 +362,17 @@ def process_voice(text):
     nums = re.findall(r'\d+', t)
     num = int(nums[0]) if nums else None
 
-    # ─── 1. 定速巡航（语义：数字 + 速度/行驶/保持/定速/巡航/开到/跑到） ───
+    # ─── 1. 空调温度（优先级最高，避免"调到18度"被当定速） ───
+    if num and 16 <= num <= 32 and ("空调" in t or "温度" in t or ("度" in t and ("调" in t or "冷" in t or "热" in t or "设" in t))):
+        state["ac_temp"] = num
+        if not state["ac_on"]: state["ac_on"] = True
+        return f"空调温度已调到 {num} 度"
+
+    # ─── 2. 定速巡航（语义：数字 + 速度/行驶/保持/定速/巡航/开到/跑到） ───
     speed_context = ("定速" in t or "巡航" in t or "保持" in t or "开到" in t
         or "跑到" in t or "设定" in t or "速度" in t or "车速" in t
-        or "行驶" in t or "开" in t or "走" in t or "限速" in t)
-    if speed_context and num and 0 <= num <= 160:
+        or "行驶" in t or "限速" in t or (num and num > 32 and num <= 300 and ("开" in t or "走" in t or "跑" in t)))
+    if speed_context and num and 0 <= num <= 300:
         if state["charging"]: return "充电中不可驾驶，请先停止充电"
         if state["power_off"]: return "电量耗尽，请先充电"
         state["cruise_speed"] = num
@@ -395,7 +408,20 @@ def process_voice(text):
                 break
 
     # ─── 3. 速度控制 ───
-    if "加速" in t or "快" in t or "提速" in t or "踩油门" in t or "冲" in t:
+    if "油门加满" in t or "地板油" in t or "全速" in t:
+        if state["charging"]: return "充电中不可驾驶"
+        if state["power_off"]: return "电量耗尽"
+        state["cruise_on"] = False
+        state["throttle"] = 100; state["brake"] = 0
+        if state["gear"] != "D": state["gear"] = "D"
+        return "油门踩到底！"
+
+    if "踩刹车" in t or "急刹" in t or "刹停" in t:
+        state["cruise_on"] = False
+        state["brake"] = 100; state["throttle"] = 0
+        return "急刹车！"
+
+    if "加速" in t or "快" in t or "提速" in t or "踩油门" in t or "冲" in t or "加油门" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
         state["cruise_on"] = False
