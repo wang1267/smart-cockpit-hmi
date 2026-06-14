@@ -116,6 +116,10 @@ def simulate_vehicle():
             if abs(state["speed"]) < 0.5:
                 state["speed"] = 0
 
+        # 定速巡航：非D档自动取消
+        if state["cruise_on"] and state["gear"] != "D":
+            state["cruise_on"] = False
+
         # 定速巡航：自动调节油门维持目标车速
         if state["cruise_on"] and state["gear"] == "D" and not state["power_off"]:
             speed_err = state["cruise_speed"] - state["speed"]
@@ -227,8 +231,10 @@ def set_gear():
             state["speed"] = 0
             state["throttle"] = 0
             state["brake"] = 0
+        if g != "D":
+            state["cruise_on"] = False  # 非D档自动取消巡航
         state["gear"] = g
-    return jsonify({"ok": True, "gear": state["gear"]})
+    return jsonify({"ok": True, "gear": state["gear"], "cruise_off": not state["cruise_on"]})
 
 
 @app.route("/api/throttle", methods=["POST"])
