@@ -20,6 +20,8 @@ state = {
     "gear": "P",
     "throttle": 0,        # 油门开度 0-100%
     "brake": 0,           # 制动开度 0-100%
+    "cruise_on": False,   # 定速巡航
+    "cruise_speed": 0,    # 巡航目标车速
     "autopilot": False,
 
     # 电池（初始满电）
@@ -113,6 +115,19 @@ def simulate_vehicle():
             state["speed"] = round(state["speed"] * 0.9, 1)
             if abs(state["speed"]) < 0.5:
                 state["speed"] = 0
+
+        # 定速巡航：自动调节油门维持目标车速
+        if state["cruise_on"] and state["gear"] == "D" and not state["power_off"]:
+            speed_err = state["cruise_speed"] - state["speed"]
+            if speed_err > 2:
+                state["throttle"] = min(100, int(speed_err * 3))
+                state["brake"] = 0
+            elif speed_err < -2:
+                state["brake"] = min(80, int(abs(speed_err) * 2))
+                state["throttle"] = 0
+            else:
+                state["throttle"] = max(0, min(30, int(20 + speed_err * 2)))
+                state["brake"] = 0
         state["rpm"] = max(0, int(abs(state["speed"]) * 40 + random.randint(-30, 30)))
         state["power"] = round(abs(state["speed"]) * 0.2 * (0.5 + throttle * 0.5) + random.uniform(-1, 2), 1)
 
@@ -327,10 +342,33 @@ def process_voice(text):
         state["gear"] = "D"; state["throttle"] = 0
         return "已挂入 D 档"
 
+    # 定速巡航
+    if "定速" in t or "巡航" in t or "保持" in t:
+        if state["charging"]: return "充电中不可驾驶"
+        if state["power_off"]: return "电量耗尽"
+        import re
+        nums = re.findall(r'\d+', t)
+        if nums:
+            target_speed = int(nums[0])
+            target_speed = max(0, min(160, target_speed))
+            state["cruise_speed"] = target_speed
+            state["cruise_on"] = True
+            if state["gear"] != "D":
+                state["gear"] = "D"
+            return f"定速巡航已开启，目标车速 {target_speed} km/h"
+        else:
+            return "请说具体车速，例如「定速60」"
+    if "取消定速" in t or "关闭定速" in t or "关闭巡航" in t:
+        state["cruise_on"] = False
+        state["cruise_speed"] = 0
+        return "定速巡航已取消"
+
     # 加速 / 减速
     if "加速" in t or "快一点" in t or "快点" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
+        # 先取消巡航
+        state["cruise_on"] = False
         state["throttle"] = min(100, state["throttle"] + 30)
         state["brake"] = 0
         if state["gear"] == "P":
@@ -338,10 +376,12 @@ def process_voice(text):
             return "已挂 D 档，油门 " + str(state["throttle"])
         return f"油门加至 {state['throttle']}"
     if "减速" in t or "慢一点" in t or "慢点" in t:
+        state["cruise_on"] = False
         state["brake"] = min(100, state["brake"] + 30)
         state["throttle"] = 0
         return f"刹车加至 {state['brake']}"
     if "松油门" in t or "松开油门" in t:
+        state["cruise_on"] = False
         state["throttle"] = 0
         return "油门已松开"
     if "松刹车" in t or "松开刹车" in t:
@@ -350,23 +390,41 @@ def process_voice(text):
 
     # 空调
     if "开空调" in t or "打开空调" in t:
-        state["ac_on"] = True; return "空调已打开"
+        state["ac_on"] = True
+        return "空调已打开"
     if "关空调" in t or "关闭空调" in t:
-        state["ac_on"] = False; return "空调已关闭"
-    if "温度" in t:
+        state["ac_on"] = False
+        return "空调已关闭"
+
+    # 空调温度（支持"空调26度""调到20度""温度26"等说法）
+    if "空调" in t or "温度" in t or "度" in t:
         import re
         nums = re.findall(r'\d+', t)
         if nums:
             temp = int(nums[0])
-            state["ac_temp"] = max(16, min(32, temp))
-            return f"温度已调至 {state['ac_temp']}℃"
-    if "风量" in t:
+            if 16 <= temp <= 32:
+                state["ac_temp"] = temp
+                if not state["ac_on"]:
+                    state["ac_on"] = True
+                return f"空调已开，温度调到 {state['ac_temp']}℃"
+
+    if "风量" in t or "风速" in t or "风" in t:
         import re
         nums = re.findall(r'\d+', t)
         if nums:
             fan = int(nums[0])
-            state["ac_fan"] = max(1, min(7, fan))
-            return f"风量已调至 {state['ac_fan']} 档"
+            if 1 <= fan <= 7:
+                state["ac_fan"] = fan
+                return f"风量已调至 {state['ac_fan']} 档"
+    if "制冷" in t:
+        state["ac_mode"] = "cool"; state["ac_on"] = True
+        return "已切换制冷模式"
+    if "制热" in t:
+        state["ac_mode"] = "heat"; state["ac_on"] = True
+        return "已切换制热模式"
+    if "自动空调" in t or "auto" in t.lower():
+        state["ac_mode"] = "auto"; state["ac_on"] = True
+        return "已切换自动空调"
 
     # 充电
     if "充电" in t:

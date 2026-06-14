@@ -306,7 +306,7 @@
   <div class="center-panel panel">
     <div class="speed-display">
       <div class="speed-num normal" id="speed-num">0</div>
-      <div class="speed-label">km/h · <span id="gear-name">P 档</span></div>
+      <div class="speed-label">km/h · <span id="gear-name">P 档</span> · <span id="cruise-indicator" style="display:none;color:var(--green);">⏱ 巡航中</span></div>
     </div>
     <div class="mini-gauges">
       <div class="mini-g"><div class="val" id="rpm-mini">0</div><div class="lbl">RPM</div></div>
@@ -405,6 +405,15 @@
 
     document.getElementById('gear-name').textContent =
       {P:'P 档',R:'R 档',N:'N 档',D:'D 档'}[state.gear] || state.gear;
+
+    // 定速巡航指示
+    const ci = document.getElementById('cruise-indicator');
+    if (state.cruise_on) {
+      ci.style.display = 'inline';
+      ci.textContent = '⏱ 巡航 ' + state.cruise_speed + 'km/h';
+    } else {
+      ci.style.display = 'none';
+    }
     document.querySelectorAll('.gear-btn').forEach(b => b.classList.toggle('active', b.dataset.gear === state.gear));
 
     // 子仪表
