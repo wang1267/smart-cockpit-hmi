@@ -104,13 +104,15 @@ def simulate_vehicle():
         if state["gear"] == "D":
             target = throttle * 140 - brake * 50
             state["speed"] += (target - state["speed"]) * 0.08
+            state["speed"] = round(max(0, min(160, state["speed"])), 1)  # D档最低0
         elif state["gear"] == "R":
             target = -(throttle * 25 - brake * 15)
             state["speed"] += (target - state["speed"]) * 0.08
+            state["speed"] = round(max(-25, min(0, state["speed"])), 1)  # R档最高0
         else:
-            state["speed"] *= 0.9
-
-        state["speed"] = round(max(-25, min(160, state["speed"])), 1)
+            state["speed"] = round(state["speed"] * 0.9, 1)
+            if abs(state["speed"]) < 0.5:
+                state["speed"] = 0
         state["rpm"] = max(0, int(abs(state["speed"]) * 40 + random.randint(-30, 30)))
         state["power"] = round(abs(state["speed"]) * 0.2 * (0.5 + throttle * 0.5) + random.uniform(-1, 2), 1)
 

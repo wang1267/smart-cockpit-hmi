@@ -100,7 +100,14 @@
 
   .alert-msg {
     text-align: center; font-size: .78rem; font-weight: 600;
-    padding: 4px 12px; border-radius: 20px; margin-top: 4px;
+    padding: 6px 12px; border-radius: 20px; margin-top: 4px;
+    position: relative;
+  }
+  .alert-msg .close-btn {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.1); color: inherit; font-size: .7rem;
+    cursor: pointer; line-height: 1;
   }
   .alert-msg.low { color: var(--gold); background: rgba(255,215,64,.08); }
   .alert-msg.crit { color: var(--orange); background: rgba(255,107,53,.1); }
@@ -281,7 +288,7 @@
       <div class="battery-section">
         <div class="battery-big" id="battery-big">100%</div>
         <div class="battery-bar-wrap"><div class="battery-bar-fill" id="battery-bar" style="width:100%;background:var(--green);"></div></div>
-        <div class="alert-msg" id="alert-msg" style="display:none;"></div>
+        <div class="alert-msg" id="alert-msg" style="display:none;"><span id="alert-text"></span><button class="close-btn" onclick="this.parentElement.style.display='none'">✕</button></div>
         <div style="font-size:.8rem;color:var(--text3);text-align:center;margin-top:6px;">续航 <span id="range-display" style="color:var(--text2);font-weight:700;">433</span> km</div>
       </div>
     </div>
@@ -427,16 +434,15 @@
 
     document.getElementById('range-display').textContent = state.range;
 
-    // 告警消息（每个阈值只展示一次，3秒后自动消失）
+    // 告警消息（每个阈值只展示一次，可手动关闭）
     const am = document.getElementById('alert-msg');
     if (state.battery_warning && state.battery_warning !== window._lastWarning) {
       window._lastWarning = state.battery_warning;
       const msgs = { low: '⚠ 电量较低，请及时充电', critical: '⚠ 电量严重不足！', emergency: '🚨 电量即将耗尽！！' };
-      am.textContent = msgs[state.battery_warning] || '';
+      document.getElementById('alert-text').textContent = msgs[state.battery_warning] || '';
       am.className = 'alert-msg ' + state.battery_warning;
       am.style.display = 'block';
       clearTimeout(window._warningTimer);
-      window._warningTimer = setTimeout(() => { am.style.display = 'none'; }, 3500);
     }
 
     // 踏板
@@ -525,53 +531,60 @@
     rec.interimResults = true;
     const indicator = document.getElementById('voice-indicator');
 
+    let silenceTimer = null;
+    function resetSilence() {
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        wakeActive = false;
+        indicator.textContent = '🎤 说「小王小王」唤醒';
+        indicator.className = 'voice-indicator idle';
+      }, 10000); // 10秒无新指令自动休眠
+    }
+
     rec.onresult = (e) => {
       let text = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         text += e.results[i][0].transcript;
       }
       text = text.replace(/\s/g, '');
+      if (!text) return;
 
       // 检测唤醒词
       if (!wakeActive && text.includes('小王小王')) {
         wakeActive = true;
-        indicator.textContent = '✅ 小王在听…';
+        indicator.textContent = '✅ 小王在听，请说指令…';
         indicator.className = 'voice-indicator wake';
-        setTimeout(() => {
-          if (wakeActive) {
-            indicator.textContent = '🎤 请说指令…';
-            indicator.className = 'voice-indicator listening';
-          }
-        }, 1500);
-        // 5 秒无指令自动休眠
-        clearTimeout(window._wakeTimeout);
-        window._wakeTimeout = setTimeout(() => { wakeActive = false; indicator.textContent = '🎤 说「小王小王」唤醒'; indicator.className = 'voice-indicator idle'; }, 8000);
+        resetSilence();
         return;
       }
 
-      // 唤醒后处理指令
+      // 唤醒后处理指令（仅处理最终结果）
       if (wakeActive && e.results[e.results.length-1].isFinal) {
-        wakeActive = false;
-        indicator.textContent = '🎤 识别：「' + text + '」';
-        indicator.className = 'voice-indicator idle';
-        fetch('/api/voice', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
-        setTimeout(() => { indicator.textContent = '🎤 说「小王小王」唤醒'; }, 3000);
+        // 过滤掉纯唤醒词
+        const cmd = text.replace('小王小王', '').trim();
+        if (cmd) {
+          indicator.textContent = '✅ 收到：「' + cmd + '」';
+          indicator.className = 'voice-indicator wake';
+          fetch('/api/voice', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: cmd}) });
+        } else {
+          indicator.textContent = '✅ 小王在听，请说指令…';
+          indicator.className = 'voice-indicator wake';
+        }
+        resetSilence(); // 收到指令后重新计时
       }
     };
 
-    rec.onerror = () => {
-      indicator.textContent = '🎤 说「小王小王」唤醒';
-      indicator.className = 'voice-indicator idle';
-      // 出错后重启
-      setTimeout(startVoiceWake, 1000);
+    rec.onerror = (e) => {
+      // 静默恢复，不打断状态
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
     };
 
     rec.onend = () => {
-      // 自动重启持续监听
-      setTimeout(startVoiceWake, 300);
+      // 自动重启，保持持续监听
+      try { rec.start(); } catch(e) {}
     };
 
-    try { rec.start(); } catch(e) { setTimeout(startVoiceWake, 1000); }
+    try { rec.start(); resetSilence(); } catch(e) {}
   }
 
   /* ═══ 键盘 ═══ */
