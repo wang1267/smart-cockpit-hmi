@@ -104,8 +104,8 @@ def simulate_vehicle():
         brake = state["brake"] / 100
 
         if state["gear"] == "D":
-            target = throttle * 140 - brake * 50
-            state["speed"] += (target - state["speed"]) * 0.08
+            target = throttle * 300 - brake * 80
+            state["speed"] += (target - state["speed"]) * 0.15
             state["speed"] = round(max(0, min(300, state["speed"])), 1)  # D档最低0
         elif state["gear"] == "R":
             target = -(throttle * 25 - brake * 15)
