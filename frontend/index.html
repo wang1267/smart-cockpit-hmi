@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能座舱 HMI · Smart Cockpit</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+SC:wght@300;400;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg: #0a0e14;
+    --panel: #11161e;
+    --border: #1e2630;
+    --cyan: #00d4ff;
+    --green: #00e676;
+    --orange: #ff9100;
+    --red: #ff3d3d;
+    --white: #e8e8ec;
+    --gray: #6a7a8a;
+    --font-mono: 'Orbitron', monospace;
+    --font-cn: 'Noto Sans SC', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-cn);
+    background: var(--bg);
+    color: var(--white);
+    height: 100vh; overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ─── 主布局：三栏 ─── */
+  .cockpit {
+    display: grid;
+    grid-template-columns: 1.2fr 1.5fr 1.2fr;
+    grid-template-rows: 1fr;
+    height: 100vh;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  /* ─── 面板容器 ─── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex; flex-direction: column;
+    backdrop-filter: blur(10px);
+    position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,212,255,.03), transparent 70%);
+    pointer-events: none;
+  }
+  .panel-title {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    color: var(--cyan); letter-spacing: 3px;
+    margin-bottom: 12px; text-transform: uppercase;
+    opacity: .7;
+  }
+
+  /* ═══════ 仪表盘（中） ═══════ */
+  #gauge-cluster {
+    display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .speed-ring {
+    position: relative; width: 260px; height: 260px;
+  }
+  .speed-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .speed-ring .bg-ring { fill: none; stroke: var(--border); stroke-width: 14; }
+  .speed-ring .fg-ring { fill: none; stroke: var(--cyan); stroke-width: 14;
+    stroke-linecap: round; transition: stroke-dashoffset .3s; filter: drop-shadow(0 0 8px rgba(0,212,255,.4)); }
+  .speed-ring .speed-val {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .speed-num {
+    font-family: var(--font-mono); font-size: 4.5rem; font-weight: 900;
+    color: var(--white); line-height: 1;
+  }
+  .speed-unit { font-size: .9rem; color: var(--gray); margin-top: 2px; }
+
+  .sub-gauges { display: flex; gap: 30px; margin-top: 16px; }
+  .sub-gauge { text-align: center; }
+  .sub-gauge .val { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; }
+  .sub-gauge .lbl { font-size: .7rem; color: var(--gray); margin-top: 2px; }
+
+  .gear-indicator {
+    margin-top: 14px; display: flex; gap: 10px;
+  }
+  .gear-btn {
+    width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--gray); font-family: var(--font-mono);
+    font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gear-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.1); box-shadow: 0 0 16px rgba(0,212,255,.2); }
+  .gear-btn:hover { border-color: var(--cyan); }
+
+  /* ═══════ 左面板 — 电池/温度/里程 ═══════ */
+  .info-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-row:last-child { border: none; }
+  .info-icon { font-size: 1.4rem; width: 36px; text-align: center; }
+  .info-label { font-size: .75rem; color: var(--gray); }
+  .info-val { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; }
+  .progress-bar {
+    flex: 1; height: 6px; background: var(--border); border-radius: 3px;
+    overflow: hidden; margin-top: 4px;
+  }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+
+  /* ═══════ 右面板 — 空调控制 ═══════ */
+  .ac-display {
+    text-align: center; padding: 10px 0;
+  }
+  .ac-temp-big {
+    font-family: var(--font-mono); font-size: 3rem; font-weight: 900;
+    color: var(--orange);
+  }
+  .ac-temp-big.off { color: var(--gray); }
+  .ac-mode { font-size: .8rem; color: var(--gray); margin: 4px 0; }
+
+  .ac-controls { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .ac-row { display: flex; align-items: center; justify-content: space-between; }
+  .ac-row .lbl { font-size: .8rem; color: var(--gray); }
+  .ac-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--panel); color: var(--white); font-size: 1.2rem;
+    cursor: pointer; transition: all .2s;
+  }
+  .ac-btn:hover { border-color: var(--orange); color: var(--orange); }
+  .ac-power {
+    padding: 8px 20px; border-radius: 20px; border: 1px solid var(--orange);
+    background: transparent; color: var(--orange); font-family: var(--font-cn);
+    font-size: .9rem; cursor: pointer; transition: all .2s; align-self: center;
+  }
+  .ac-power.on { background: rgba(255,145,0,.15); }
+
+  /* ═══════ 底部状态条 ═══════ */
+  .status-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 36px;
+    background: var(--panel); border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; font-size: .75rem; font-family: var(--font-mono);
+    color: var(--gray); z-index: 10;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; display: inline-block; }
+  .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ─── 响应式 ─── */
+  @media (max-width: 1000px) {
+    .cockpit { grid-template-columns: 1fr; grid-template-rows: auto auto auto; overflow-y: auto; }
+    .speed-ring { width: 200px; height: 200px; }
+    .speed-num { font-size: 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cockpit">
+
+  <!-- ══ 左面板：车辆状态 ══ -->
+  <div class="panel">
+    <div class="panel-title">车辆状态</div>
+
+    <div class="info-row">
+      <div class="info-icon">🔋</div>
+      <div>
+        <div class="info-label">动力电池 SOC</div>
+        <div class="info-val" id="battery-val">72%</div>
+        <div class="progress-bar"><div class="progress-fill" id="battery-bar" style="width:72%;background:var(--green)"></div></div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-icon">🛣</div>
+      <div>
+        <div class="info-label">续航里程</div>
+        <div class="info-val" id="range-val">312 <span style="font-size:.7rem;color:var(--gray)">km</span></div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-icon">📐</div>
+      <div>
+        <div class="info-label">总里程</div>
+        <div class="info-val" id="odo-val">18,472 <span style="font-size:.7rem;color:var(--gray)">km</span></div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-icon">🌡</div>
+      <div>
+        <div class="info-label">电池温度</div>
+        <div class="info-val" id="temp-val" style="color:var(--orange)">340 K</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-icon">⚡</div>
+      <div>
+        <div class="info-label">瞬时功率</div>
+        <div class="info-val" id="power-val">0 kW</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 中面板：仪表盘 ══ -->
+  <div class="panel" id="gauge-cluster">
+    <div class="speed-ring">
+      <svg viewBox="0 0 200 200">
+        <circle class="bg-ring" cx="100" cy="100" r="88"/>
+        <circle class="fg-ring" id="speed-arc" cx="100" cy="100" r="88"
+          stroke-dasharray="553" stroke-dashoffset="553"/>
+      </svg>
+      <div class="speed-val">
+        <div class="speed-num" id="speed-num">0</div>
+        <div class="speed-unit">km/h</div>
+      </div>
+    </div>
+
+    <div class="sub-gauges">
+      <div class="sub-gauge">
+        <div class="val" id="rpm-val" style="color:var(--cyan)">800</div>
+        <div class="lbl">RPM</div>
+      </div>
+      <div class="sub-gauge">
+        <div class="val" id="ac-in-val" style="color:var(--orange)">22°</div>
+        <div class="lbl">车内温度</div>
+      </div>
+      <div class="sub-gauge">
+        <div class="val" id="ac-out-val" style="color:var(--gray)">35°</div>
+        <div class="lbl">车外温度</div>
+      </div>
+    </div>
+
+    <div class="gear-indicator">
+      <button class="gear-btn" data-gear="P">P</button>
+      <button class="gear-btn" data-gear="R">R</button>
+      <button class="gear-btn" data-gear="N">N</button>
+      <button class="gear-btn active" data-gear="D">D</button>
+    </div>
+  </div>
+
+  <!-- ══ 右面板：空调控制 ══ -->
+  <div class="panel">
+    <div class="panel-title">气候控制</div>
+
+    <div class="ac-display">
+      <div class="ac-temp-big" id="ac-temp-display">24°</div>
+      <div class="ac-mode" id="ac-mode-display">AUTO · 风量 3 档</div>
+    </div>
+
+    <div class="ac-controls">
+      <div class="ac-row">
+        <span class="lbl">温度设定</span>
+        <button class="ac-btn" onclick="adjAc('temp',-1)">−</button>
+        <span id="ac-set-temp" style="font-family:var(--font-mono);font-weight:700;">24℃</span>
+        <button class="ac-btn" onclick="adjAc('temp',1)">+</button>
+      </div>
+      <div class="ac-row">
+        <span class="lbl">风量</span>
+        <button class="ac-btn" onclick="adjAc('fan',-1)">−</button>
+        <span id="ac-set-fan" style="font-family:var(--font-mono);font-weight:700;">3</span>
+        <button class="ac-btn" onclick="adjAc('fan',1)">+</button>
+      </div>
+      <div class="ac-row" style="justify-content:center;gap:8px;">
+        <button class="ac-btn" style="width:auto;padding:0 12px;border-radius:20px;font-size:.75rem;font-family:var(--font-cn);" onclick="setAcMode('auto')">AUTO</button>
+        <button class="ac-btn" style="width:auto;padding:0 12px;border-radius:20px;font-size:.75rem;font-family:var(--font-cn);" onclick="setAcMode('cool')">制冷</button>
+        <button class="ac-btn" style="width:auto;padding:0 12px;border-radius:20px;font-size:.75rem;font-family:var(--font-cn);" onclick="setAcMode('heat')">制热</button>
+      </div>
+      <button class="ac-power" id="ac-power-btn" onclick="toggleAc()">○ OFF</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 底部状态条 -->
+<div class="status-bar">
+  <span><span class="status-dot green"></span> 系统就绪</span>
+  <span id="voice-hint" style="color:var(--cyan);cursor:pointer;" onclick="startVoice()">🎤 语音控制（点击说话）</span>
+  <span id="clock">00:00</span>
+</div>
+
+<script>
+  // ═══ 数据轮询 ═══
+  let state = {};
+  const CIRCUMFERENCE = 2 * Math.PI * 88; // ≈ 553
+
+  async function fetchState() {
+    try {
+      const r = await fetch('/api/state');
+      state = await r.json();
+      render();
+    } catch(e) { /* 后端未启动时静默 */ }
+  }
+
+  function render() {
+    // 速度环
+    const maxSpeed = 160;
+    const ratio = Math.min(state.speed / maxSpeed, 1);
+    const offset = CIRCUMFERENCE * (1 - ratio);
+    document.getElementById('speed-arc').setAttribute('stroke-dashoffset', offset);
+    document.getElementById('speed-num').textContent = Math.round(state.speed);
+
+    // 速度环颜色变化（高速变橙/红）
+    const arc = document.getElementById('speed-arc');
+    if (state.speed > 100) arc.style.stroke = 'var(--red)';
+    else if (state.speed > 60) arc.style.stroke = 'var(--orange)';
+    else arc.style.stroke = 'var(--cyan)';
+
+    // 子仪表
+    document.getElementById('rpm-val').textContent = state.rpm;
+    document.getElementById('ac-in-val').textContent = state.ac_in + '°';
+    document.getElementById('ac-out-val').textContent = state.ac_out + '°';
+
+    // 电池
+    document.getElementById('battery-val').textContent = state.battery + '%';
+    document.getElementById('battery-bar').style.width = state.battery + '%';
+    const bb = document.getElementById('battery-bar');
+    if (state.battery < 20) bb.style.background = 'var(--red)';
+    else if (state.battery < 40) bb.style.background = 'var(--orange)';
+    else bb.style.background = 'var(--green)';
+
+    // 里程 & 温度 & 功率
+    document.getElementById('range-val').innerHTML = state.range + ' <span style="font-size:.7rem;color:var(--gray)">km</span>';
+    document.getElementById('odo-val').innerHTML = state.odometer.toLocaleString('en-US', {maximumFractionDigits:0}) + ' <span style="font-size:.7rem;color:var(--gray)">km</span>';
+    document.getElementById('temp-val').textContent = state.temperature + ' K';
+    document.getElementById('power-val').textContent = state.power.toFixed(1) + ' kW';
+
+    // 空调
+    const at = document.getElementById('ac-temp-display');
+    if (state.ac_on) {
+      at.textContent = state.ac_in + '°';
+      at.classList.remove('off');
+    } else {
+      at.textContent = 'OFF';
+      at.classList.add('off');
+    }
+    document.getElementById('ac-set-temp').textContent = state.ac_temp + '℃';
+    document.getElementById('ac-set-fan').textContent = state.ac_fan;
+    document.getElementById('ac-mode-display').textContent =
+      {auto:'AUTO',cool:'制冷',heat:'制热',vent:'通风'}[state.ac_mode] + ' · 风量 ' + state.ac_fan + ' 档';
+
+    const pwr = document.getElementById('ac-power-btn');
+    if (state.ac_on) { pwr.textContent = '● ON'; pwr.classList.add('on'); }
+    else { pwr.textContent = '○ OFF'; pwr.classList.remove('on'); }
+
+    // 档位
+    document.querySelectorAll('.gear-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.gear === state.gear);
+    });
+
+    // 时钟
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  }
+
+  // ═══ 控制 ═══
+  async function setGear(g) { await fetch('/api/gear', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gear:g})}); }
+  document.querySelectorAll('.gear-btn').forEach(b => {
+    b.addEventListener('click', () => setGear(b.dataset.gear));
+  });
+
+  async function toggleAc() {
+    await fetch('/api/ac', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!state.ac_on})});
+  }
+  async function adjAc(field, delta) {
+    const val = field === 'temp' ? state.ac_temp + delta : state.ac_fan + delta;
+    await fetch('/api/ac', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:val})});
+  }
+  async function setAcMode(mode) {
+    await fetch('/api/ac', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
+  }
+
+  // ═══ 语音控制 ═══
+  function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { alert('浏览器不支持语音识别，请用 Chrome'); return; }
+    const rec = new SpeechRecognition();
+    rec.lang = 'zh-CN';
+    rec.interimResults = false;
+    document.getElementById('voice-hint').textContent = '🎤 正在聆听...';
+    rec.start();
+    rec.onresult = async (e) => {
+      const text = e.results[0][0].transcript;
+      document.getElementById('voice-hint').textContent = '🎤 识别：「' + text + '」';
+      const r = await fetch('/api/voice', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+      const j = await r.json();
+      setTimeout(() => { document.getElementById('voice-hint').textContent = '🎤 语音控制（点击说话）'; }, 3000);
+    };
+    rec.onerror = () => { document.getElementById('voice-hint').textContent = '🎤 语音控制（点击说话）'; };
+  }
+
+  // ═══ 键盘控制 ═══
+  document.addEventListener('keydown', e => {
+    const map = {p:'P',r:'R',n:'N',d:'D'};
+    if (map[e.key.toLowerCase()]) setGear(map[e.key.toLowerCase()]);
+    if (e.key === 'ArrowUp') adjAc('temp',1);
+    if (e.key === 'ArrowDown') adjAc('temp',-1);
+  });
+
+  // 主循环
+  setInterval(fetchState, 200);
+  fetchState();
+</script>
+</body>
+</html>
