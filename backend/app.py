@@ -256,6 +256,30 @@ def set_brake():
     return jsonify({"ok": True, "brake": state["brake"], "throttle": state["throttle"]})
 
 
+@app.route("/api/cruise", methods=["POST"])
+def set_cruise():
+    data = request.json
+    if state["power_off"]:
+        return jsonify({"ok": False, "msg": "电量耗尽"})
+    if state["charging"]:
+        return jsonify({"ok": False, "msg": "充电中不可驾驶"})
+    if "on" in data:
+        state["cruise_on"] = bool(data["on"])
+        if not data["on"]:
+            state["cruise_speed"] = 0
+    if "speed" in data:
+        state["cruise_speed"] = max(10, min(300, int(data["speed"])))
+        state["cruise_on"] = True
+        if state["gear"] != "D":
+            state["gear"] = "D"
+        if state["cruise_speed"] > state["speed"]:
+            state["throttle"] = 80
+        else:
+            state["throttle"] = 20
+        state["brake"] = 0
+    return jsonify({"ok": True, "cruise_on": state["cruise_on"], "cruise_speed": state["cruise_speed"]})
+
+
 @app.route("/api/charge", methods=["POST"])
 def toggle_charge():
     """开始/停止充电"""

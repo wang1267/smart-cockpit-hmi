@@ -321,7 +321,19 @@
       <div class="gear-btn" data-gear="N">N</div>
       <div class="gear-btn" data-gear="D">D</div>
     </div>
-    <button class="charge-btn" id="charge-btn" onclick="toggleCharge()">⚡ 充电</button>
+    <!-- 定速巡航手动控制 -->
+    <div class="cruise-row" style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+      <span style="font-size:.7rem;color:var(--text3);">巡航</span>
+      <button class="ac-btn" style="width:28px;height:28px;" onclick="adjCruise(-10)">−10</button>
+      <button class="ac-btn" style="width:28px;height:28px;" onclick="adjCruise(-1)">−</button>
+      <span id="cruise-set-display" style="font-family:var(--font-en);font-weight:700;font-size:.95rem;min-width:36px;text-align:center;">--</span>
+      <button class="ac-btn" style="width:28px;height:28px;" onclick="adjCruise(1)">+</button>
+      <button class="ac-btn" style="width:28px;height:28px;" onclick="adjCruise(10)">+10</button>
+      <button class="ac-btn" style="width:auto;padding:0 10px;border-radius:12px;font-size:.7rem;font-family:var(--font-cn);" onclick="setCruise()">设定</button>
+      <button class="ac-btn" style="width:auto;padding:0 10px;border-radius:12px;font-size:.7rem;font-family:var(--font-cn);" onclick="cancelCruise()">取消</button>
+    </div>
+
+    <button class="charge-btn" style="margin-top:8px;" id="charge-btn" onclick="toggleCharge()">⚡ 充电</button>
   </div>
 
   <!-- ═══ 右侧踏板 ═══ -->
@@ -411,11 +423,16 @@
 
     // 定速巡航指示
     const ci = document.getElementById('cruise-indicator');
+    const cs = document.getElementById('cruise-set-display');
     if (state.cruise_on) {
       ci.style.display = 'inline';
       ci.textContent = '⏱ 巡航 ' + state.cruise_speed + 'km/h';
+      cs.textContent = state.cruise_speed;
+      cs.style.color = 'var(--green)';
     } else {
       ci.style.display = 'none';
+      cs.textContent = '--';
+      cs.style.color = 'var(--text2)';
     }
     document.querySelectorAll('.gear-btn').forEach(b => b.classList.toggle('active', b.dataset.gear === state.gear));
 
@@ -523,6 +540,18 @@
 
   async function toggleCharge() {
     await api('/api/charge', { action: 'toggle' });
+  }
+  async function adjCruise(delta) {
+    const current = state.cruise_on ? state.cruise_speed : (Math.round(state.speed) || 60);
+    const target = Math.max(10, Math.min(300, current + delta));
+    await api('/api/cruise', { speed: target, on: true });
+  }
+  async function setCruise() {
+    const target = state.cruise_speed || Math.round(state.speed) || 60;
+    await api('/api/cruise', { speed: target, on: true });
+  }
+  async function cancelCruise() {
+    await api('/api/cruise', { on: false });
   }
   async function toggleAc() {
     await api('/api/ac', { on: !state.ac_on });
