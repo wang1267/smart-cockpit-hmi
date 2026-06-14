@@ -538,7 +538,21 @@
     rec.lang = 'zh-CN';
     rec.continuous = true;
     rec.interimResults = true;
+    rec.maxAlternatives = 3;  // 返回多个候选，取最优匹配
     const indicator = document.getElementById('voice-indicator');
+
+    // 偏置词汇表：提高车载指令识别率
+    const biasWords = ['小王小王','挂P档','挂R档','挂N档','挂D档','停车','倒车','前进',
+      '加速','减速','定速','巡航','保持','取消','油门','刹车',
+      '空调','温度','风量','制冷','制热','自动','打开','关闭','度','档',
+      '充电','停止','自动驾驶','导航','小王','快一点','慢一点',
+      '二十','三十','四十','五十','六十','七十','八十','九十','一百','十六','十八','二十','二十二','二十四','二十六','二十八'];
+    try {
+      const grammar = '#JSGF V1.0; grammar commands; public <cmd> = ' + biasWords.join(' | ') + ';';
+      const list = new window.SpeechGrammarList();
+      list.addFromString(grammar, 1.0);
+      rec.grammars = list;
+    } catch(e) { /* 部分浏览器不支持，忽略 */ }
 
     let silenceTimer = null;
     function resetSilence() {
@@ -547,15 +561,25 @@
         wakeActive = false;
         indicator.textContent = '🎤 说「小王小王」唤醒';
         indicator.className = 'voice-indicator idle';
-      }, 10000); // 10秒无新指令自动休眠
+      }, 5000); // 5秒无新指令自动休眠
     }
 
     rec.onresult = (e) => {
-      let text = '';
+      // 收集所有候选结果，选最匹配的
+      let candidates = [];
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        text += e.results[i][0].transcript;
+        for (let j = 0; j < e.results[i].length; j++) {
+          const alt = e.results[i][j].transcript.replace(/\s/g, '');
+          if (alt) candidates.push({ text: alt, confidence: e.results[i][j].confidence || 0 });
+        }
       }
-      text = text.replace(/\s/g, '');
+      // 按置信度排序，取最高
+      candidates.sort((a, b) => b.confidence - a.confidence);
+      let text = candidates.length > 0 ? candidates[0].text : '';
+      // 如果置信度都不高，拼接所有候选找关键词
+      if (!text || (candidates[0].confidence < 0.5)) {
+        text = candidates.map(c => c.text).join('');
+      }
       if (!text) return;
 
       // 检测唤醒词
