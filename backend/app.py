@@ -460,18 +460,31 @@ def process_voice(text):
         state["brake"] = 100; state["throttle"] = 0
         return "急刹车！"
 
-    if "加速" in t or "快" in t or "提速" in t or "踩油门" in t or "冲" in t or "加油门" in t:
+    # 微调：快/慢一点
+    if "快一点" in t or "快点" in t:
+        if state["charging"]: return "充电中不可驾驶"
+        if state["power_off"]: return "电量耗尽"
+        state["cruise_on"] = False
+        state["throttle"] = min(100, state["throttle"] + 20)
+        state["brake"] = 0
+        if state["gear"] != "D": state["gear"] = "D"
+        return f"好的，油门 {state['throttle']}"
+    if "慢一点" in t or "慢点" in t:
+        state["cruise_on"] = False
+        state["brake"] = min(100, state["brake"] + 20)
+        state["throttle"] = 0
+        return f"好的，刹车 {state['brake']}"
+
+    if "加速" in t or "提速" in t or "踩油门" in t or "加油门" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
         state["cruise_on"] = False
         state["throttle"] = min(100, state["throttle"] + 40)
         state["brake"] = 0
-        if state["gear"] not in ("D","R"):
-            state["gear"] = "D"
-            return f"已挂D档，油门 {state['throttle']}"
+        if state["gear"] != "D": state["gear"] = "D"
         return f"油门 {state['throttle']}"
 
-    if "减速" in t or "慢" in t or "刹车" in t or "刹" in t or "制动" in t:
+    if "减速" in t or "刹车" in t or "刹" in t or "制动" in t:
         state["cruise_on"] = False
         state["brake"] = min(100, state["brake"] + 40)
         state["throttle"] = 0
