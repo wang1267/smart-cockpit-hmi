@@ -377,7 +377,11 @@ def process_voice(text):
         if state["power_off"]: return "电量耗尽，请先充电"
         state["cruise_speed"] = num
         state["cruise_on"] = True
-        state["throttle"] = 0; state["brake"] = 0
+        if num > state["speed"]:
+            state["throttle"] = 80  # 立即给油加速
+        else:
+            state["throttle"] = 20
+        state["brake"] = 0
         if state["gear"] != "D":
             state["gear"] = "D"
         return f"好的，定速巡航 {num} km/h"
