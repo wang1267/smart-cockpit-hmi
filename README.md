@@ -1,4 +1,4 @@
-# 🚗 Smart Cockpit HMI · 智能座舱仪表盘
+# 🚗 IntelliDash · 智能座舱仪表盘
 
 > 智能座舱 HMI 交互原型 | Python + Flask + Web 前端  
 > 模拟车载中控屏，演示车速/电池/空调/语音控制
