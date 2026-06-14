@@ -3,528 +3,590 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>智能座舱 HMI · Xiaomi SU7 Style</title>
+<title>IntelliDash · 智能座舱</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
   :root {
-    --bg: #f0f1f3;
-    --surface: #ffffff;
-    --surface2: #f7f7f9;
-    --border: #e4e5e8;
-    --orange: #ff6900;
-    --orange-light: rgba(255,105,0,.08);
-    --text: #1a1a1e;
-    --text2: #6b6d73;
-    --text3: #9a9ca3;
-    --green: #34c759;
-    --blue: #007aff;
-    --red: #ff3b30;
-    --radius-sm: 12px;
-    --radius: 20px;
-    --radius-lg: 28px;
+    --bg: #04060d;
+    --panel: #080c18;
+    --card: #0d1022;
+    --border: #141830;
+    --cyan: #00d4ff;
+    --blue: #3388ff;
+    --green: #00e676;
+    --orange: #ff6b35;
+    --red: #ff2d55;
+    --gold: #ffd740;
+    --text: #e8eaef;
+    --text2: #7a8090;
+    --text3: #4a5060;
+    --glow-cyan: 0 0 24px rgba(0,212,255,.25);
+    --glow-orange: 0 0 24px rgba(255,107,53,.3);
+    --glow-red: 0 0 24px rgba(255,45,85,.3);
     --font-en: 'Inter', sans-serif;
     --font-cn: 'Noto Sans SC', sans-serif;
-    --shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.04);
+    --radius: 16px;
+    --radius-lg: 22px;
   }
 
   body {
     font-family: var(--font-cn);
-    background: #e8eaed;
+    background: var(--bg);
     color: var(--text);
     height: 100vh; overflow: hidden;
     user-select: none; -webkit-user-select: none;
-    display: flex; align-items: center; justify-content: center;
   }
 
-  /* ═══ 座舱主容器 ═══ */
+  /* ═══ 网格背景 ═══ */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; opacity: .025;
+    background-image:
+      linear-gradient(rgba(0,212,255,.4) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,.4) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+
+  /* ═══ 主布局 ═══ */
   .cockpit {
+    position: relative; z-index: 1;
     display: grid;
-    grid-template-columns: 320px 1fr;
-    grid-template-rows: 1fr 80px;
-    gap: 12px;
-    width: 100vw; height: 100vh;
-    padding: 12px;
-    max-width: 1600px;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: 1fr 90px;
+    gap: 10px; padding: 10px;
+    height: 100vh;
   }
 
-  /* ═══ 左侧：仪表盘 ═══ */
-  .cluster {
-    grid-row: 1;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    display: flex; flex-direction: column;
-    box-shadow: var(--shadow);
+  /* ═══ 面板基类 ═══ */
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px;
+    backdrop-filter: blur(10px);
     position: relative; overflow: hidden;
   }
 
-  /* 车速 — SU7 标志性大字 */
-  .speed-hero {
-    flex: 1; display: flex; flex-direction: column;
+  /* ═══ 左侧：电池+车辆信息 ═══ */
+  .left-panel { grid-row: 1; display: flex; flex-direction: column; gap: 10px; }
+  .info-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-row:last-child { border: none; }
+  .info-icon { font-size: 1.3rem; width: 36px; text-align: center; }
+  .info-val { font-family: var(--font-en); font-size: 1.2rem; font-weight: 700; }
+  .info-label { font-size: .72rem; color: var(--text3); }
+
+  /* 电池进度条 */
+  .battery-section { flex:1; display: flex; flex-direction: column; justify-content: center; }
+  .battery-big {
+    font-family: var(--font-en); font-size: 3.2rem; font-weight: 800;
+    text-align: center; line-height: 1;
+  }
+  .battery-big.warn { color: var(--orange); text-shadow: var(--glow-orange); }
+  .battery-big.crit { color: var(--red); text-shadow: var(--glow-red); animation: blink .5s infinite; }
+  .battery-big.dead { color: var(--text3); }
+  @keyframes blink { 50% { opacity: .3; } }
+
+  .battery-bar-wrap {
+    height: 8px; background: var(--border); border-radius: 4px;
+    margin: 10px 0; overflow: hidden;
+  }
+  .battery-bar-fill {
+    height: 100%; border-radius: 4px; transition: width .3s, background .3s;
+  }
+
+  .alert-msg {
+    text-align: center; font-size: .78rem; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px; margin-top: 4px;
+  }
+  .alert-msg.low { color: var(--gold); background: rgba(255,215,64,.08); }
+  .alert-msg.crit { color: var(--orange); background: rgba(255,107,53,.1); }
+  .alert-msg.emergency { color: var(--red); background: rgba(255,45,85,.1); animation: blink .5s infinite; }
+
+  /* ═══ 中控：仪表盘 ═══ */
+  .center-panel {
+    grid-row: 1;
+    display: flex; flex-direction: column;
     align-items: center; justify-content: center;
   }
-  .speed-big {
-    font-family: var(--font-en); font-size: 8rem; font-weight: 800;
-    line-height: 1; color: var(--text);
-    transition: color .3s;
-    letter-spacing: -4px;
+  .speed-display { text-align: center; }
+  .speed-num {
+    font-family: var(--font-en); font-size: 10rem; font-weight: 900;
+    line-height: 1; letter-spacing: -6px;
+    transition: color .3s, text-shadow .3s;
   }
-  .speed-big.fast { color: var(--orange); }
-  .speed-big.danger { color: var(--red); }
+  .speed-num.normal { color: var(--text); text-shadow: 0 0 40px rgba(255,255,255,.08); }
+  .speed-num.fast { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .speed-num.danger { color: var(--red); text-shadow: var(--glow-red); }
 
-  .speed-unit-row {
-    font-size: .95rem; color: var(--text3); margin-top: 4px;
-  }
-  .speed-unit-row span { color: var(--text2); font-weight: 500; }
+  .speed-label { font-size: .9rem; color: var(--text3); margin-top: 4px; }
+  .speed-label span { color: var(--cyan); font-weight: 600; }
 
-  /* 档位指示器 */
-  .gear-strip {
-    display: flex; gap: 6px; justify-content: center; margin: 16px 0;
-  }
-  .gear-dot {
-    width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--border);
-    background: var(--surface2); color: var(--text3);
-    font-family: var(--font-en); font-weight: 600; font-size: 1rem;
+  /* 转速+功率小字 */
+  .mini-gauges { display: flex; gap: 40px; margin-top: 12px; }
+  .mini-g { text-align: center; }
+  .mini-g .val { font-family: var(--font-en); font-size: 1.3rem; font-weight: 700; color: var(--text2); }
+  .mini-g .lbl { font-size: .7rem; color: var(--text3); }
+
+  /* 档位 */
+  .gear-row { display: flex; gap: 8px; margin-top: 16px; }
+  .gear-btn {
+    width: 48px; height: 48px; border-radius: 12px;
+    border: 1.5px solid var(--border); background: var(--card);
+    color: var(--text3); font-family: var(--font-en);
+    font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all .2s;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all .2s;
   }
-  .gear-dot.active {
-    background: var(--text); color: #fff; border-color: var(--text);
+  .gear-btn:hover { border-color: var(--cyan); }
+  .gear-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.08); box-shadow: var(--glow-cyan); }
+
+  /* 充电按钮 */
+  .charge-btn {
+    margin-top: 12px; padding: 8px 24px; border-radius: 20px;
+    border: 1.5px solid var(--green); background: transparent;
+    color: var(--green); font-family: var(--font-cn); font-size: .85rem;
+    font-weight: 600; cursor: pointer; transition: all .2s;
+  }
+  .charge-btn:hover { background: rgba(0,230,118,.1); box-shadow: 0 0 20px rgba(0,230,118,.15); }
+  .charge-btn.charging { border-color: var(--gold); color: var(--gold); animation: pulse-charge 1.5s infinite; }
+  @keyframes pulse-charge {
+    0%,100% { box-shadow: 0 0 8px rgba(255,215,64,.2); }
+    50% { box-shadow: 0 0 24px rgba(255,215,64,.5); }
   }
 
-  /* 续航环 */
-  .range-ring-wrap {
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    padding: 8px 0;
-  }
-  .range-ring {
-    width: 56px; height: 56px; position: relative;
-  }
-  .range-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .range-bg { fill: none; stroke: var(--border); stroke-width: 6; }
-  .range-fg { fill: none; stroke: var(--green); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .5s; }
-  .range-fg.low { stroke: var(--orange); }
-  .range-fg.crit { stroke: var(--red); }
-  .range-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-en); font-size: .85rem; font-weight: 700; }
-
-  .range-info { text-align: left; }
-  .range-km { font-family: var(--font-en); font-size: 1.4rem; font-weight: 700; }
-  .range-label { font-size: .75rem; color: var(--text3); }
-
-  /* 底部信息 */
-  .cluster-footer {
-    display: flex; justify-content: space-around;
-    padding-top: 12px; border-top: 1px solid var(--border);
-    font-size: .75rem; color: var(--text3);
-  }
-  .cluster-footer .val { font-family: var(--font-en); font-weight: 600; color: var(--text2); }
-
-  /* ═══ 右侧：中控屏 ═══ */
-  .center-screen {
+  /* ═══ 右侧：油门刹车踏板 ═══ */
+  .right-panel {
     grid-row: 1;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 20px 24px;
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: 16px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
+    display: flex; flex-direction: column; gap: 12px;
   }
-
-  /* 顶栏 */
-  .top-bar {
-    display: flex; align-items: center; justify-content: space-between;
+  .pedal-section { flex: 1; }
+  .pedal-label {
+    font-size: .7rem; color: var(--text3); text-transform: uppercase;
+    letter-spacing: 2px; margin-bottom: 6px; text-align: center;
   }
-  .top-bar .title {
-    font-family: var(--font-en); font-size: .8rem; font-weight: 600;
-    color: var(--text3); letter-spacing: 2px; text-transform: uppercase;
+  .pedal-track {
+    position: relative; width: 100%; height: calc(100% - 20px);
+    background: var(--card); border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
-  .top-bar .time {
-    font-family: var(--font-en); font-size: 1.1rem; font-weight: 600;
+  .pedal-fill {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    transition: height .1s; border-radius: 0 0 16px 16px;
   }
-
-  /* 信息卡片网格 */
-  .card-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr; gap: 12px;
+  .pedal-fill.throttle { background: linear-gradient(to top, var(--cyan), rgba(0,212,255,.3)); }
+  .pedal-fill.brake { background: linear-gradient(to top, var(--orange), rgba(255,107,53,.3)); }
+  .pedal-val {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    font-family: var(--font-en); font-size: 1.5rem; font-weight: 800;
   }
-  .info-card {
-    background: var(--surface2); border-radius: var(--radius);
-    padding: 18px; display: flex; flex-direction: column;
-    transition: background .2s; cursor: default;
-  }
-  .info-card:hover { background: var(--orange-light); }
-  .card-header {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-  }
-  .card-icon {
-    width: 32px; height: 32px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem;
-  }
-  .card-title { font-size: .8rem; color: var(--text3); font-weight: 500; }
-  .card-body { flex: 1; }
-  .card-big {
-    font-family: var(--font-en); font-size: 2.2rem; font-weight: 700;
-    line-height: 1.1;
-  }
-  .card-sub { font-size: .8rem; color: var(--text3); margin-top: 4px; }
-  .card-bar { margin-top: 8px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-  .card-fill { height: 100%; border-radius: 2px; transition: width .5s; }
-  .card-fill.green { background: var(--green); }
-  .card-fill.orange { background: var(--orange); }
-
-  /* 空调卡片（横跨两列） */
-  .card-grid .climate-card {
-    grid-column: 1 / -1;
-    display: flex; flex-direction: row; align-items: center; gap: 20px;
-    background: var(--surface2); border-radius: var(--radius); padding: 16px 22px;
-  }
-  .climate-left { display: flex; align-items: center; gap: 16px; }
-  .climate-emoji { font-size: 2.2rem; }
-  .climate-temp {
-    font-family: var(--font-en); font-size: 2.5rem; font-weight: 700;
-  }
-  .climate-temp.off { color: var(--text3); }
-  .climate-controls {
-    display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;
-  }
-  .cl-btn {
-    width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--border);
-    background: var(--surface); color: var(--text);
-    font-size: 1.1rem; cursor: pointer; transition: all .2s;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .cl-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
-  .cl-power {
-    padding: 8px 18px; border-radius: 20px; border: 1.5px solid var(--orange);
-    background: transparent; color: var(--orange); font-family: var(--font-cn);
-    font-size: .85rem; font-weight: 600; cursor: pointer; transition: all .2s;
-  }
-  .cl-power.on { background: var(--orange); color: #fff; }
+  .pedal-val.throttle { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .pedal-val.brake { color: var(--orange); text-shadow: var(--glow-orange); }
 
   /* ═══ 底部控制栏 ═══ */
   .bottom-bar {
-    grid-column: 1 / -1; grid-row: 2;
-    background: var(--surface); border-radius: var(--radius-lg);
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px; box-shadow: var(--shadow);
-    gap: 16px;
+    grid-column: 1/-1; grid-row: 2;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; padding: 0 20px;
+    gap: 16px; backdrop-filter: blur(10px);
   }
-  .bottom-item {
-    display: flex; align-items: center; gap: 8px;
-  }
-  .bottom-icon { font-size: 1.2rem; }
-  .bottom-val { font-family: var(--font-en); font-weight: 600; font-size: .95rem; }
-  .bottom-label { font-size: .75rem; color: var(--text3); }
-  .bottom-sep { width: 1px; height: 28px; background: var(--border); }
+  .bot-item { display: flex; align-items: center; gap: 6px; }
+  .bot-icon { font-size: 1.1rem; }
+  .bot-val { font-family: var(--font-en); font-weight: 600; font-size: .9rem; }
+  .bot-label { font-size: .72rem; color: var(--text3); }
+  .bot-sep { width: 1px; height: 30px; background: var(--border); }
 
-  .voice-btn {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 20px;
-    border: 1.5px solid var(--border); background: var(--surface2);
-    color: var(--text2); font-family: var(--font-cn); font-size: .85rem;
+  /* 空调条 */
+  .ac-strip { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .ac-temp { font-family: var(--font-en); font-size: 1.2rem; font-weight: 700; color: var(--orange); }
+  .ac-temp.off { color: var(--text3); }
+  .ac-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--card); color: var(--text2); font-size: 1rem;
     cursor: pointer; transition: all .2s;
   }
-  .voice-btn:hover { border-color: var(--orange); color: var(--orange); }
-  .voice-btn.listening { border-color: var(--orange); background: var(--orange-light); animation: pulse 1.5s infinite; }
-  @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(255,105,0,.3); }
-    50% { box-shadow: 0 0 0 8px rgba(255,105,0,0); }
+  .ac-btn:hover { border-color: var(--orange); color: var(--orange); }
+  .ac-power {
+    padding: 6px 14px; border-radius: 16px; border: 1px solid var(--orange);
+    background: transparent; color: var(--orange); font-family: var(--font-cn);
+    font-size: .8rem; font-weight: 600; cursor: pointer;
+  }
+  .ac-power.on { background: rgba(255,107,53,.15); }
+
+  /* 语音状态浮标 */
+  .voice-indicator {
+    position: fixed; bottom: 110px; right: 20px; z-index: 10;
+    padding: 10px 18px; border-radius: 24px;
+    font-family: var(--font-cn); font-size: .85rem; font-weight: 600;
+    transition: all .3s; pointer-events: none;
+  }
+  .voice-indicator.idle { background: var(--card); border: 1px solid var(--border); color: var(--text3); }
+  .voice-indicator.listening {
+    background: rgba(0,212,255,.1); border: 1.5px solid var(--cyan);
+    color: var(--cyan); animation: pulse-voice 1.5s infinite;
+  }
+  .voice-indicator.wake {
+    background: rgba(0,230,118,.1); border: 1.5px solid var(--green);
+    color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,.2);
+  }
+  @keyframes pulse-voice {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,212,255,.4); }
+    50% { box-shadow: 0 0 0 12px rgba(0,212,255,0); }
   }
 
-  /* ═══ 响应式 ═══ */
-  @media (max-width: 900px) {
-    .cockpit { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; overflow-y: auto; }
-    .speed-big { font-size: 5rem; }
-    .card-grid { grid-template-columns: 1fr; }
+  /* 断电遮罩 */
+  .power-off-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(4,6,13,.92); display: flex;
+    align-items: center; justify-content: center;
+    pointer-events: none; opacity: 0; transition: opacity .5s;
+  }
+  .power-off-overlay.active { opacity: 1; }
+  .power-off-msg {
+    text-align: center;
+  }
+  .power-off-msg .icon { font-size: 4rem; }
+  .power-off-msg .title {
+    font-size: 1.6rem; font-weight: 800; color: var(--red);
+    margin: 12px 0;
+  }
+  .power-off-msg .sub {
+    color: var(--text3); font-size: .9rem;
+  }
+
+  /* 响应式 */
+  @media (max-width: 1000px) {
+    .cockpit { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; overflow-y: auto; }
+    .speed-num { font-size: 5rem; }
+    .right-panel { flex-direction: row; }
+    .pedal-track { height: 120px; }
   }
 </style>
 </head>
 <body>
 
+<div class="bg-grid"></div>
+
 <div class="cockpit">
 
-  <!-- ═══ 左侧：仪表盘（方向盘后方悬浮屏） ═══ -->
-  <div class="cluster">
-    <div class="speed-hero">
-      <div class="speed-big" id="speed-big">0</div>
-      <div class="speed-unit-row">km/h · <span id="gear-name">P 档</span></div>
-    </div>
-
-    <div class="gear-strip">
-      <div class="gear-dot active" data-gear="P">P</div>
-      <div class="gear-dot" data-gear="R">R</div>
-      <div class="gear-dot" data-gear="N">N</div>
-      <div class="gear-dot" data-gear="D">D</div>
-    </div>
-
-    <div class="range-ring-wrap">
-      <div class="range-ring">
-        <svg viewBox="0 0 48 48">
-          <circle class="range-bg" cx="24" cy="24" r="20"/>
-          <circle class="range-fg" id="range-ring" cx="24" cy="24" r="20"
-            stroke-dasharray="125.6" stroke-dashoffset="0"/>
-        </svg>
-        <div class="range-text" id="battery-pct">72</div>
-      </div>
-      <div class="range-info">
-        <div class="range-km" id="range-num">312 <span style="font-size:.7rem;font-weight:400;color:var(--text3)">km</span></div>
-        <div class="range-label">续航里程</div>
+  <!-- ═══ 左侧面板 ═══ -->
+  <div class="left-panel">
+    <div class="panel" style="flex:1;display:flex;flex-direction:column;">
+      <div style="font-family:var(--font-en);font-size:.7rem;color:var(--text3);letter-spacing:2px;">POWER</div>
+      <div class="battery-section">
+        <div class="battery-big" id="battery-big">100%</div>
+        <div class="battery-bar-wrap"><div class="battery-bar-fill" id="battery-bar" style="width:100%;background:var(--green);"></div></div>
+        <div class="alert-msg" id="alert-msg" style="display:none;"></div>
+        <div style="font-size:.8rem;color:var(--text3);text-align:center;margin-top:6px;">续航 <span id="range-display" style="color:var(--text2);font-weight:700;">433</span> km</div>
       </div>
     </div>
 
-    <div class="cluster-footer">
-      <div>总里程 <span class="val" id="odo-disp">18,472</span> km</div>
-      <div>功率 <span class="val" id="power-disp">0</span> kW</div>
-      <div>电池 <span class="val" id="temp-disp">340</span> K</div>
+    <div class="panel" style="flex:1;">
+      <div style="font-family:var(--font-en);font-size:.7rem;color:var(--text3);letter-spacing:2px;margin-bottom:8px;">INFO</div>
+      <div class="info-row"><span class="info-icon">⚙</span><div><div class="info-label">电机转速</div><div class="info-val" id="rpm-display">0</div></div></div>
+      <div class="info-row"><span class="info-icon">⚡</span><div><div class="info-label">瞬时功率</div><div class="info-val" id="power-display">0 kW</div></div></div>
+      <div class="info-row"><span class="info-icon">🛣</span><div><div class="info-label">总里程</div><div class="info-val" id="odo-display">18,472</div></div></div>
+      <div class="info-row"><span class="info-icon">🌡</span><div><div class="info-label">电池温度</div><div class="info-val" id="temp-display">310 K</div></div></div>
     </div>
   </div>
 
-  <!-- ═══ 右侧：中控屏 ═══ -->
-  <div class="center-screen">
-    <div class="top-bar">
-      <span class="title">IntelliDash</span>
-      <span class="time" id="clock">12:00</span>
+  <!-- ═══ 中控仪表 ═══ -->
+  <div class="center-panel panel">
+    <div class="speed-display">
+      <div class="speed-num normal" id="speed-num">0</div>
+      <div class="speed-label">km/h · <span id="gear-name">P 档</span></div>
     </div>
+    <div class="mini-gauges">
+      <div class="mini-g"><div class="val" id="rpm-mini">0</div><div class="lbl">RPM</div></div>
+      <div class="mini-g"><div class="val" id="ac-in-mini">26°</div><div class="lbl">车内温度</div></div>
+      <div class="mini-g"><div class="val" style="color:var(--text3);" id="ac-out-mini">35°</div><div class="lbl">车外温度</div></div>
+    </div>
+    <div class="gear-row">
+      <div class="gear-btn active" data-gear="P">P</div>
+      <div class="gear-btn" data-gear="R">R</div>
+      <div class="gear-btn" data-gear="N">N</div>
+      <div class="gear-btn" data-gear="D">D</div>
+    </div>
+    <button class="charge-btn" id="charge-btn" onclick="toggleCharge()">⚡ 充电</button>
+  </div>
 
-    <div class="card-grid">
-      <!-- 电池 -->
-      <div class="info-card">
-        <div class="card-header">
-          <div class="card-icon" style="background:#e8f8ed;">🔋</div>
-          <span class="card-title">动力电池</span>
-        </div>
-        <div class="card-body">
-          <div class="card-big" id="battery-card">72<span style="font-size:1rem;color:var(--text3);">%</span></div>
-          <div class="card-sub">SOC · 续航 <span id="range-card" style="font-weight:600;color:var(--text2);">312 km</span></div>
-          <div class="card-bar"><div class="card-fill green" id="battery-bar" style="width:72%"></div></div>
-        </div>
+  <!-- ═══ 右侧踏板 ═══ -->
+  <div class="right-panel panel">
+    <div class="pedal-section">
+      <div class="pedal-label">油门 Throttle</div>
+      <div class="pedal-track" id="throttle-track"
+        onmousedown="startPedal('throttle',event)" onmousemove="movePedal('throttle',event)" onmouseup="stopPedal()" onmouseleave="stopPedal()"
+        ontouchstart="startPedal('throttle',event)" ontouchmove="movePedal('throttle',event)" ontouchend="stopPedal()">
+        <div class="pedal-fill throttle" id="throttle-fill" style="height:0%"></div>
+        <div class="pedal-val throttle" id="throttle-val">0</div>
       </div>
-
-      <!-- 温度 -->
-      <div class="info-card">
-        <div class="card-header">
-          <div class="card-icon" style="background:#fff0e8;">🌡</div>
-          <span class="card-title">温度信息</span>
-        </div>
-        <div class="card-body">
-          <div class="card-big" id="temp-card">22<span style="font-size:1rem;color:var(--text3);">°</span></div>
-          <div class="card-sub">车内 · 车外 <span id="outdoor-temp" style="font-weight:600;color:var(--text2);">35°</span></div>
-          <div class="card-bar"><div class="card-fill orange" id="temp-bar" style="width:50%"></div></div>
-        </div>
-      </div>
-
-      <!-- RMP -->
-      <div class="info-card">
-        <div class="card-header">
-          <div class="card-icon" style="background:#e8eeff;">⚙</div>
-          <span class="card-title">电机转速</span>
-        </div>
-        <div class="card-body">
-          <div class="card-big" id="rpm-card">800</div>
-          <div class="card-sub">RPM · 档位 <span id="gear-card" style="font-weight:600;color:var(--text2);">P</span></div>
-        </div>
-      </div>
-
-      <!-- 功率 -->
-      <div class="info-card">
-        <div class="card-header">
-          <div class="card-icon" style="background:#f0f0ff;">⚡</div>
-          <span class="card-title">瞬时功率</span>
-        </div>
-        <div class="card-body">
-          <div class="card-big" id="power-card">0<span style="font-size:1rem;color:var(--text3);">kW</span></div>
-          <div class="card-sub">能量回收中</div>
-        </div>
-      </div>
-
-      <!-- 气候控制 -->
-      <div class="climate-card">
-        <div class="climate-left">
-          <div class="climate-emoji" id="climate-emoji">🌬</div>
-          <div>
-            <div class="climate-temp" id="climate-temp" style="color:var(--orange);">24°</div>
-            <div style="font-size:.75rem;color:var(--text3);" id="climate-mode">AUTO</div>
-          </div>
-        </div>
-        <div class="climate-controls">
-          <button class="cl-btn" onclick="adjAc('temp',-1)">−</button>
-          <span style="font-family:var(--font-en);font-weight:600;min-width:36px;text-align:center;" id="ac-set-temp">24℃</span>
-          <button class="cl-btn" onclick="adjAc('temp',1)">+</button>
-          <button class="cl-btn" onclick="adjAc('fan',-1)">◀</button>
-          <span style="font-family:var(--font-en);font-weight:600;min-width:28px;text-align:center;" id="ac-fan">3</span>
-          <button class="cl-btn" onclick="adjAc('fan',1)">▶</button>
-          <button class="cl-power" id="ac-power-btn" onclick="toggleAc()">OFF</button>
-        </div>
+    </div>
+    <div class="pedal-section">
+      <div class="pedal-label">刹车 Brake</div>
+      <div class="pedal-track" id="brake-track"
+        onmousedown="startPedal('brake',event)" onmousemove="movePedal('brake',event)" onmouseup="stopPedal()" onmouseleave="stopPedal()"
+        ontouchstart="startPedal('brake',event)" ontouchmove="movePedal('brake',event)" ontouchend="stopPedal()">
+        <div class="pedal-fill brake" id="brake-fill" style="height:0%"></div>
+        <div class="pedal-val brake" id="brake-val">0</div>
       </div>
     </div>
   </div>
 
-  <!-- ═══ 底部控制栏 ═══ -->
+  <!-- ═══ 底部栏 ═══ -->
   <div class="bottom-bar">
-    <div class="bottom-item">
-      <span class="bottom-icon">🚗</span>
-      <span class="bottom-val" id="bot-speed">0</span>
-      <span class="bottom-label">km/h</span>
+    <div class="bot-item"><span class="bot-icon">🚗</span><span class="bot-val" id="bot-speed">0</span><span class="bot-label">km/h</span></div>
+    <div class="bot-sep"></div>
+    <div class="bot-item"><span class="bot-icon">🔋</span><span class="bot-val" id="bot-batt">100%</span></div>
+    <div class="bot-sep"></div>
+    <div class="bot-item"><span class="bot-icon">🛣</span><span class="bot-val" id="bot-odo">18,472 km</span></div>
+
+    <div class="ac-strip">
+      <span style="font-size:.75rem;color:var(--text3);">空调</span>
+      <span class="ac-temp" id="ac-temp-display">26°</span>
+      <button class="ac-btn" onclick="adjAc('temp',-1)">−</button>
+      <span style="font-family:var(--font-en);font-weight:600;font-size:.85rem;" id="ac-set">24℃</span>
+      <button class="ac-btn" onclick="adjAc('temp',1)">+</button>
+      <button class="ac-power" id="ac-power-btn" onclick="toggleAc()">OFF</button>
     </div>
-    <div class="bottom-sep"></div>
-    <div class="bottom-item">
-      <span class="bottom-icon">🔋</span>
-      <span class="bottom-val" id="bot-battery">72%</span>
-    </div>
-    <div class="bottom-sep"></div>
-    <div class="bottom-item">
-      <span class="bottom-icon">🛣</span>
-      <span class="bottom-val" id="bot-odo">18,472 km</span>
-    </div>
-    <div style="flex:1;"></div>
-    <button class="voice-btn" id="voice-btn" onclick="startVoice()">
-      🎤 语音控制
-    </button>
   </div>
 
 </div>
 
+<!-- 语音浮标 -->
+<div class="voice-indicator idle" id="voice-indicator">🎤 说「小王小王」唤醒</div>
+
+<!-- 断电遮罩 -->
+<div class="power-off-overlay" id="power-overlay">
+  <div class="power-off-msg">
+    <div class="icon">🔋</div>
+    <div class="title">电量耗尽</div>
+    <div class="sub">请点击「⚡ 充电」按钮恢复供电</div>
+  </div>
+</div>
+
 <script>
-  /* ═══ 数据轮询 ═══ */
+  /* ═══ 状态 ═══ */
   let state = {};
-  const RING = 2 * Math.PI * 20; // ≈125.6
+  let pedalActive = null;
+  let wakeActive = false;
 
   async function fetchState() {
-    try {
-      const r = await fetch('/api/state');
-      state = await r.json();
-      render();
-    } catch(e) {}
+    try { const r = await fetch('/api/state'); state = await r.json(); render(); }
+    catch(e) {}
   }
 
+  async function api(url, data) {
+    await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  }
+
+  /* ═══ 渲染 ═══ */
   function render() {
     const speed = Math.round(state.speed);
 
-    // 车速大数字
-    const sb = document.getElementById('speed-big');
-    sb.textContent = speed;
-    sb.classList.remove('fast','danger');
-    if (speed > 100) sb.classList.add('danger');
-    else if (speed > 60) sb.classList.add('fast');
+    // 车速
+    const sn = document.getElementById('speed-num');
+    sn.textContent = speed;
+    sn.className = 'speed-num';
+    if (speed > 100) sn.classList.add('danger');
+    else if (speed > 50) sn.classList.add('fast');
+    else sn.classList.add('normal');
 
-    // 档位
-    const gn = document.getElementById('gear-name');
-    gn.textContent = {P:'P 档',R:'R 档',N:'N 档',D:'D 档'}[state.gear] || state.gear;
-    document.querySelectorAll('.gear-dot').forEach(d => {
-      d.classList.toggle('active', d.dataset.gear === state.gear);
-    });
-    document.getElementById('gear-card').textContent = state.gear;
+    document.getElementById('gear-name').textContent =
+      {P:'P 档',R:'R 档',N:'N 档',D:'D 档'}[state.gear] || state.gear;
+    document.querySelectorAll('.gear-btn').forEach(b => b.classList.toggle('active', b.dataset.gear === state.gear));
 
-    // 续航环
+    // 子仪表
+    document.getElementById('rpm-mini').textContent = state.rpm;
+    document.getElementById('ac-in-mini').textContent = state.ac_in + '°';
+    document.getElementById('ac-out-mini').textContent = state.ac_out + '°';
+    document.getElementById('rpm-display').textContent = state.rpm;
+    document.getElementById('power-display').textContent = state.power.toFixed(1) + ' kW';
+    document.getElementById('odo-display').textContent = state.odometer.toLocaleString('en-US',{maximumFractionDigits:0});
+    document.getElementById('temp-display').textContent = state.battery_temp + ' K';
+
+    // 电池
     const batt = state.battery;
-    const rr = document.getElementById('range-ring');
-    rr.style.strokeDashoffset = RING * (1 - batt / 100);
-    rr.classList.remove('low','crit');
-    if (batt < 20) rr.classList.add('crit');
-    else if (batt < 40) rr.classList.add('low');
-    document.getElementById('battery-pct').textContent = Math.round(batt);
-    document.getElementById('range-num').innerHTML = state.range + ' <span style="font-size:.7rem;font-weight:400;color:var(--text3)">km</span>';
+    const bb = document.getElementById('battery-big');
+    bb.textContent = Math.round(batt) + '%';
+    bb.className = 'battery-big';
+    if (state.power_off) bb.classList.add('dead');
+    else if (batt <= 2 || state.battery_warning === 'emergency') bb.classList.add('crit');
+    else if (batt <= 20 || state.battery_warning === 'critical') bb.classList.add('warn');
 
-    // 仪表盘底部
-    document.getElementById('odo-disp').textContent = state.odometer.toLocaleString('en-US',{maximumFractionDigits:0});
-    document.getElementById('power-disp').textContent = state.power.toFixed(1);
-    document.getElementById('temp-disp').textContent = state.temperature;
+    const bbar = document.getElementById('battery-bar');
+    bbar.style.width = batt + '%';
+    if (batt <= 10) bbar.style.background = 'var(--red)';
+    else if (batt <= 20) bbar.style.background = 'var(--orange)';
+    else if (batt <= 40) bbar.style.background = 'var(--gold)';
+    else bbar.style.background = 'var(--green)';
 
-    // 中控卡片
-    document.getElementById('battery-card').innerHTML = Math.round(batt) + '<span style="font-size:1rem;color:var(--text3);">%</span>';
-    document.getElementById('range-card').textContent = state.range + ' km';
-    document.getElementById('battery-bar').style.width = batt + '%';
-    const bb = document.getElementById('battery-bar');
-    if (batt < 20) { bb.className = 'card-fill'; bb.style.background = 'var(--red)'; }
-    else { bb.className = 'card-fill green'; bb.style.background = ''; }
+    document.getElementById('range-display').textContent = state.range;
 
-    document.getElementById('temp-card').innerHTML = state.ac_in + '<span style="font-size:1rem;color:var(--text3);">°</span>';
-    document.getElementById('outdoor-temp').textContent = state.ac_out + '°';
-    document.getElementById('temp-bar').style.width = Math.min(100, Math.max(0, (state.ac_in / 45) * 100)) + '%';
-
-    document.getElementById('rpm-card').textContent = state.rpm;
-    document.getElementById('power-card').innerHTML = state.power.toFixed(1) + '<span style="font-size:1rem;color:var(--text3);">kW</span>';
-
-    // 空调
-    const ct = document.getElementById('climate-temp');
-    const ce = document.getElementById('climate-emoji');
-    const cm = document.getElementById('climate-mode');
-    if (state.ac_on) {
-      ct.textContent = state.ac_in + '°';
-      ct.style.color = state.ac_mode === 'heat' ? 'var(--orange)' : state.ac_mode === 'cool' ? 'var(--blue)' : 'var(--orange)';
-      ce.textContent = state.ac_mode === 'heat' ? '🔥' : state.ac_mode === 'cool' ? '❄' : '🌬';
-      cm.textContent = {auto:'AUTO',cool:'制冷',heat:'制热',vent:'通风'}[state.ac_mode] + ' · 风量 ' + state.ac_fan;
+    // 告警消息
+    const am = document.getElementById('alert-msg');
+    if (state.battery_warning) {
+      am.style.display = 'block';
+      const msgs = { low: '⚠ 电量较低，请及时充电', critical: '⚠ 电量严重不足！', emergency: '🚨 电量即将耗尽！！' };
+      am.textContent = msgs[state.battery_warning] || '';
+      am.className = 'alert-msg ' + state.battery_warning;
     } else {
-      ct.textContent = 'OFF'; ct.style.color = 'var(--text3)';
-      ce.textContent = '⏻'; cm.textContent = '已关闭';
+      am.style.display = 'none';
     }
-    document.getElementById('ac-set-temp').textContent = state.ac_temp + '℃';
-    document.getElementById('ac-fan').textContent = state.ac_fan;
 
-    const pwr = document.getElementById('ac-power-btn');
-    if (state.ac_on) { pwr.textContent = 'ON'; pwr.classList.add('on'); }
-    else { pwr.textContent = 'OFF'; pwr.classList.remove('on'); }
+    // 踏板
+    document.getElementById('throttle-fill').style.height = state.throttle + '%';
+    document.getElementById('throttle-val').textContent = state.throttle > 0 ? state.throttle : '';
+    document.getElementById('brake-fill').style.height = state.brake + '%';
+    document.getElementById('brake-val').textContent = state.brake > 0 ? state.brake : '';
 
-    // 底部栏
+    // 充电按钮
+    const cb = document.getElementById('charge-btn');
+    if (state.charging) {
+      cb.textContent = '⚡ 充电中 ' + Math.round(batt) + '%';
+      cb.classList.add('charging');
+    } else if (state.power_off || batt <= 2) {
+      cb.textContent = '⚡ 立即充电';
+      cb.classList.remove('charging');
+      cb.style.borderColor = 'var(--red)'; cb.style.color = 'var(--red)';
+    } else if (batt >= 100) {
+      cb.textContent = '⚡ 电量已满';
+      cb.classList.remove('charging');
+      cb.style.borderColor = 'var(--green)'; cb.style.color = 'var(--green)';
+    } else {
+      cb.textContent = '⚡ 充电';
+      cb.classList.remove('charging');
+      cb.style.borderColor = 'var(--green)'; cb.style.color = 'var(--green)';
+    }
+
+    // 断电遮罩
+    document.getElementById('power-overlay').classList.toggle('active', state.power_off);
+
+    // 底部
     document.getElementById('bot-speed').textContent = speed;
-    document.getElementById('bot-battery').textContent = Math.round(batt) + '%';
+    document.getElementById('bot-batt').textContent = Math.round(batt) + '%';
     document.getElementById('bot-odo').textContent = state.odometer.toLocaleString('en-US',{maximumFractionDigits:0}) + ' km';
 
-    // 时钟
-    const now = new Date();
-    document.getElementById('clock').textContent =
-      now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    // 空调
+    const at = document.getElementById('ac-temp-display');
+    if (state.ac_on) { at.textContent = state.ac_in + '°'; at.classList.remove('off'); }
+    else { at.textContent = 'OFF'; at.classList.add('off'); }
+    document.getElementById('ac-set').textContent = state.ac_temp + '℃';
+    const ap = document.getElementById('ac-power-btn');
+    if (state.ac_on) { ap.textContent = 'ON'; ap.classList.add('on'); }
+    else { ap.textContent = 'OFF'; ap.classList.remove('on'); }
   }
+
+  /* ═══ 踏板交互 ═══ */
+  function getPedalY(el, e) {
+    const rect = el.getBoundingClientRect();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return Math.max(0, Math.min(100, Math.round((1 - (clientY - rect.top) / rect.height) * 100)));
+  }
+
+  function startPedal(type, e) { pedalActive = type; movePedal(type, e); }
+  function movePedal(type, e) {
+    if (pedalActive !== type) return;
+    const val = getPedalY(e.currentTarget, e);
+    api('/api/' + type, { value: val });
+  }
+  function stopPedal() { pedalActive = null; }
 
   /* ═══ 控制 ═══ */
-  async function setGear(g) {
-    await fetch('/api/gear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gear:g})});
-  }
-  document.querySelectorAll('.gear-dot').forEach(b => {
-    b.addEventListener('click',() => setGear(b.dataset.gear));
+  async function setGear(g) { await api('/api/gear', { gear: g }); }
+  document.querySelectorAll('.gear-btn').forEach(b => {
+    b.addEventListener('click', () => setGear(b.dataset.gear));
   });
 
+  async function toggleCharge() {
+    await api('/api/charge', { action: 'toggle' });
+  }
   async function toggleAc() {
-    await fetch('/api/ac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!state.ac_on})});
+    await api('/api/ac', { on: !state.ac_on });
   }
   async function adjAc(field, delta) {
     const val = field === 'temp' ? state.ac_temp + delta : state.ac_fan + delta;
-    await fetch('/api/ac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:val})});
+    await api('/api/ac', { [field]: val });
   }
 
-  /* ═══ 语音 ═══ */
-  function startVoice() {
+  /* ═══ 语音唤醒 + 控制 ═══ */
+  function startVoiceWake() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('请用 Chrome 浏览器'); return; }
-    const rec = new SR(); rec.lang = 'zh-CN'; rec.interimResults = false;
-    const btn = document.getElementById('voice-btn');
-    btn.textContent = '🎤 正在听...'; btn.classList.add('listening');
-    rec.start();
-    rec.onresult = async e => {
-      const text = e.results[0][0].transcript;
-      btn.textContent = '🎤 「' + text + '」';
-      await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-      setTimeout(() => { btn.textContent = '🎤 语音控制'; btn.classList.remove('listening'); }, 2500);
+    if (!SR) return;
+
+    const rec = new SR();
+    rec.lang = 'zh-CN';
+    rec.continuous = true;
+    rec.interimResults = true;
+    const indicator = document.getElementById('voice-indicator');
+
+    rec.onresult = (e) => {
+      let text = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        text += e.results[i][0].transcript;
+      }
+      text = text.replace(/\s/g, '');
+
+      // 检测唤醒词
+      if (!wakeActive && text.includes('小王小王')) {
+        wakeActive = true;
+        indicator.textContent = '✅ 小王在听…';
+        indicator.className = 'voice-indicator wake';
+        setTimeout(() => {
+          if (wakeActive) {
+            indicator.textContent = '🎤 请说指令…';
+            indicator.className = 'voice-indicator listening';
+          }
+        }, 1500);
+        // 5 秒无指令自动休眠
+        clearTimeout(window._wakeTimeout);
+        window._wakeTimeout = setTimeout(() => { wakeActive = false; indicator.textContent = '🎤 说「小王小王」唤醒'; indicator.className = 'voice-indicator idle'; }, 8000);
+        return;
+      }
+
+      // 唤醒后处理指令
+      if (wakeActive && e.results[e.results.length-1].isFinal) {
+        wakeActive = false;
+        indicator.textContent = '🎤 识别：「' + text + '」';
+        indicator.className = 'voice-indicator idle';
+        fetch('/api/voice', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
+        setTimeout(() => { indicator.textContent = '🎤 说「小王小王」唤醒'; }, 3000);
+      }
     };
-    rec.onerror = () => { btn.textContent = '🎤 语音控制'; btn.classList.remove('listening'); };
+
+    rec.onerror = () => {
+      indicator.textContent = '🎤 说「小王小王」唤醒';
+      indicator.className = 'voice-indicator idle';
+      // 出错后重启
+      setTimeout(startVoiceWake, 1000);
+    };
+
+    rec.onend = () => {
+      // 自动重启持续监听
+      setTimeout(startVoiceWake, 300);
+    };
+
+    try { rec.start(); } catch(e) { setTimeout(startVoiceWake, 1000); }
   }
 
   /* ═══ 键盘 ═══ */
   document.addEventListener('keydown', e => {
-    const map = {p:'P',r:'R',n:'N',d:'D'};
-    if (map[e.key.toLowerCase()]) setGear(map[e.key.toLowerCase()]);
-    if (e.key === 'ArrowUp') adjAc('temp',1);
-    if (e.key === 'ArrowDown') adjAc('temp',-1);
+    const gearMap = { p:'P', r:'R', n:'N', d:'D' };
+    if (gearMap[e.key.toLowerCase()]) setGear(gearMap[e.key.toLowerCase()]);
+    if (e.key === 'ArrowUp') api('/api/throttle', { value: Math.min(100, (state.throttle||0) + 20) });
+    if (e.key === 'ArrowDown') api('/api/brake', { value: Math.min(100, (state.brake||0) + 20) });
+    if (e.key === 'ArrowRight') api('/api/throttle', { value: 0 });
+    if (e.key === 'ArrowLeft') api('/api/brake', { value: 0 });
   });
 
-  setInterval(fetchState, 200);
+  /* ═══ 启动 ═══ */
+  setInterval(fetchState, 150);
   fetchState();
+  startVoiceWake();
 </script>
 </body>
 </html>
