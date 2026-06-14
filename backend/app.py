@@ -153,18 +153,35 @@ def simulate_vehicle():
         state["ac_in"] = round(state["ac_in"], 1)
 
 
+# 记录已触发的告警（每个阈值只触发一次）
+_triggered_warnings = set()
+
 def update_battery_warning():
     b = state["battery"]
+
     if b <= 0:
-        state["battery_warning"] = "emergency"
+        level = "emergency"
     elif b <= 2:
-        state["battery_warning"] = "emergency"
+        level = "emergency"
     elif b <= 10:
-        state["battery_warning"] = "critical"
+        level = "critical"
     elif b <= 20:
-        state["battery_warning"] = "low"
+        level = "low"
     else:
+        # 电量回升到阈值以上，重置对应告警
+        if b > 20:
+            _triggered_warnings.discard("low")
+        if b > 10:
+            _triggered_warnings.discard("critical")
+        if b > 2:
+            _triggered_warnings.discard("emergency")
         state["battery_warning"] = None
+        return
+
+    # 仅在首次到达该阈值时告警
+    if level not in _triggered_warnings:
+        _triggered_warnings.add(level)
+        state["battery_warning"] = level
 
 
 # ═══════════════ API ═══════════════
@@ -233,6 +250,8 @@ def toggle_charge():
             state["throttle"] = 0
             state["brake"] = 0
             state["power_off"] = False
+            state["battery_warning"] = None
+            _triggered_warnings.clear()  # 重置所有告警记录
             return jsonify({"ok": True, "charging": True})
         return jsonify({"ok": False, "msg": "电量已满"})
 
@@ -251,6 +270,8 @@ def toggle_charge():
             state["throttle"] = 0
             state["brake"] = 0
             state["power_off"] = False
+            state["battery_warning"] = None
+            _triggered_warnings.clear()
         else:
             return jsonify({"ok": False, "msg": "电量已满"})
     return jsonify({"ok": True, "charging": state["charging"]})

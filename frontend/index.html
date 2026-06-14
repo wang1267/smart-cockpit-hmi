@@ -427,15 +427,16 @@
 
     document.getElementById('range-display').textContent = state.range;
 
-    // 告警消息
+    // 告警消息（每个阈值只展示一次，3秒后自动消失）
     const am = document.getElementById('alert-msg');
-    if (state.battery_warning) {
-      am.style.display = 'block';
+    if (state.battery_warning && state.battery_warning !== window._lastWarning) {
+      window._lastWarning = state.battery_warning;
       const msgs = { low: '⚠ 电量较低，请及时充电', critical: '⚠ 电量严重不足！', emergency: '🚨 电量即将耗尽！！' };
       am.textContent = msgs[state.battery_warning] || '';
       am.className = 'alert-msg ' + state.battery_warning;
-    } else {
-      am.style.display = 'none';
+      am.style.display = 'block';
+      clearTimeout(window._warningTimer);
+      window._warningTimer = setTimeout(() => { am.style.display = 'none'; }, 3500);
     }
 
     // 踏板
