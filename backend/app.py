@@ -403,28 +403,6 @@ def process_voice(text):
         if not state["ac_on"]: state["ac_on"] = True
         return f"空调温度已调到 {num} 度"
 
-    # ─── 2. 定速巡航（语义：数字 + 速度/行驶/保持/定速/巡航/开到/跑到） ───
-    speed_context = ("定速" in t or "巡航" in t or "保持" in t or "开到" in t
-        or "跑到" in t or "设定" in t or "速度" in t or "车速" in t
-        or "行驶" in t or "限速" in t or (num and num > 32 and num <= 300 and ("开" in t or "走" in t or "跑" in t)))
-    if speed_context and num and 0 <= num <= 300:
-        if state["charging"]: return "充电中不可驾驶，请先停止充电"
-        if state["power_off"]: return "电量耗尽，请先充电"
-        state["cruise_speed"] = num
-        state["cruise_on"] = True
-        if num > state["speed"]:
-            state["throttle"] = 80  # 立即给油加速
-        else:
-            state["throttle"] = 20
-        state["brake"] = 0
-        if state["gear"] != "D":
-            state["gear"] = "D"
-        return f"好的，定速巡航 {num} km/h"
-
-    if "取消定速" in t or "退出定速" in t or "关闭定速" in t or "关闭巡航" in t or "退出巡航" in t:
-        state["cruise_on"] = False; state["cruise_speed"] = 0
-        return "定速巡航已取消"
-
     # ─── 2. 挂挡 ───
     gear_map = [
         (["p档","p挡","p","停车","驻车"], "P"),
@@ -446,7 +424,7 @@ def process_voice(text):
                 return f"已挂入 {gear} 档"
                 break
 
-    # ─── 3. 速度控制 ───
+    # ─── 3. 速度控制（优先级高于巡航，避免"开慢一点"被巡航截胡） ───
     if "油门加满" in t or "地板油" in t or "全速" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
@@ -460,7 +438,6 @@ def process_voice(text):
         state["brake"] = 100; state["throttle"] = 0
         return "急刹车！"
 
-    # 微调：快/慢一点
     if "快一点" in t or "快点" in t:
         if state["charging"]: return "充电中不可驾驶"
         if state["power_off"]: return "电量耗尽"
@@ -489,6 +466,26 @@ def process_voice(text):
         state["brake"] = min(100, state["brake"] + 40)
         state["throttle"] = 0
         return f"刹车 {state['brake']}"
+
+    # ─── 4. 定速巡航（必须在速度控制之后，避免"开慢一点"被当成巡航） ───
+    speed_words = "定速" in t or "巡航" in t or "保持" in t or "设定" in t or "限速" in t
+    if speed_words and num and 0 <= num <= 300:
+        if state["charging"]: return "充电中不可驾驶，请先停止充电"
+        if state["power_off"]: return "电量耗尽，请先充电"
+        state["cruise_speed"] = num
+        state["cruise_on"] = True
+        if num > state["speed"]:
+            state["throttle"] = 80
+        else:
+            state["throttle"] = 20
+        state["brake"] = 0
+        if state["gear"] != "D":
+            state["gear"] = "D"
+        return f"好的，定速巡航 {num} km/h"
+
+    if "取消定速" in t or "退出定速" in t or "关闭定速" in t or "关闭巡航" in t or "退出巡航" in t:
+        state["cruise_on"] = False; state["cruise_speed"] = 0
+        return "定速巡航已取消"
 
     if "松油门" in t or "松掉油门" in t:
         state["throttle"] = 0; state["cruise_on"] = False
